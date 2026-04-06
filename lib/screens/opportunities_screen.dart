@@ -20,7 +20,9 @@ class _OpportunitiesScreenState extends State<OpportunitiesScreen> {
 
   List<_RankedOpportunity> _rankedOpportunities = const [];
   bool _isLoading = true;
+  bool _isForceRefreshing = false;
   bool _isUsingCachedData = false;
+  DateTime? _lastUpdated;
   String? _errorMessage;
 
   @override
@@ -48,6 +50,7 @@ class _OpportunitiesScreenState extends State<OpportunitiesScreen> {
       setState(() {
         _rankedOpportunities = ranked;
         _isUsingCachedData = result.fromCache;
+        _lastUpdated = result.lastUpdated;
         _isLoading = false;
       });
     } catch (error) {
@@ -62,10 +65,60 @@ class _OpportunitiesScreenState extends State<OpportunitiesScreen> {
     }
   }
 
+  Future<void> _forceRefreshOpportunities() async {
+    setState(() {
+      _isForceRefreshing = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final result = await _opportunityService.fetchOpportunities(
+        forceRefresh: true,
+      );
+      final profile = await _profileService.getProfile();
+      final ranked = _rankOpportunities(result.opportunities, profile);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _rankedOpportunities = ranked;
+        _isUsingCachedData = false;
+        _lastUpdated = result.lastUpdated;
+        _isForceRefreshing = false;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _errorMessage = 'Manual refresh failed: $error';
+        _isForceRefreshing = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Opportunities')),
+      appBar: AppBar(
+        title: const Text('Opportunities'),
+        actions: [
+          IconButton(
+            onPressed: _isForceRefreshing ? null : _forceRefreshOpportunities,
+            icon: _isForceRefreshing
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.refresh),
+            tooltip: 'Manual refresh',
+          ),
+        ],
+      ),
       body: _buildBody(),
     );
   }
@@ -93,6 +146,21 @@ class _OpportunitiesScreenState extends State<OpportunitiesScreen> {
 
     return Column(
       children: [
+        if (_lastUpdated != null)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.s16,
+              vertical: AppSpacing.s8,
+            ),
+            color: Colors.grey.shade100,
+            child: Text(
+              'Last updated: ${_formatTimestamp(_lastUpdated!)}',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.grey.shade700,
+                  ),
+            ),
+          ),
         if (_isUsingCachedData)
           Container(
             width: double.infinity,
@@ -262,6 +330,14 @@ class _OpportunitiesScreenState extends State<OpportunitiesScreen> {
       return 40;
     }
     return 20;
+  }
+
+  String _formatTimestamp(DateTime dateTime) {
+    final month = dateTime.month.toString().padLeft(2, '0');
+    final day = dateTime.day.toString().padLeft(2, '0');
+    final hour = dateTime.hour.toString().padLeft(2, '0');
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    return '${dateTime.year}-$month-$day $hour:$minute';
   }
 }
 

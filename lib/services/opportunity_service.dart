@@ -10,10 +10,12 @@ class OpportunitiesFetchResult {
   const OpportunitiesFetchResult({
     required this.opportunities,
     required this.fromCache,
+    required this.lastUpdated,
   });
 
   final List<OpportunityModel> opportunities;
   final bool fromCache;
+  final DateTime? lastUpdated;
 }
 
 class OpportunityService {
@@ -23,8 +25,11 @@ class OpportunityService {
   // For physical devices, replace with your machine IP.
   final String baseUrl;
   static const String _cacheKey = 'cached_opportunities';
+  static const String _cacheUpdatedAtKey = 'cached_opportunities_updated_at';
 
-  Future<OpportunitiesFetchResult> fetchOpportunities() async {
+  Future<OpportunitiesFetchResult> fetchOpportunities({
+    bool forceRefresh = false,
+  }) async {
     final uri = Uri.parse('$baseUrl/opportunities');
     try {
       final response = await http.get(uri);
@@ -48,22 +53,33 @@ class OpportunityService {
           .map(OpportunityModel.fromJson)
           .toList();
 
-      await _saveCache(decoded);
+      final updatedAt = DateTime.now();
+      await _saveCache(decoded, updatedAt);
       debugPrint(
           '[OpportunityService] Loaded opportunities from API: ${opportunities.length}');
 
       return OpportunitiesFetchResult(
         opportunities: opportunities,
         fromCache: false,
+        lastUpdated: updatedAt,
       );
     } catch (error) {
+      if (forceRefresh) {
+        debugPrint('[OpportunityService] Force refresh failed; cache ignored');
+        rethrow;
+      }
+
       debugPrint(
           '[OpportunityService] API failed, attempting cache fallback: $error');
-      final cached = await _loadCache();
+      final cached = await _loadCacheWithMetadata();
       if (cached.isNotEmpty) {
         debugPrint(
             '[OpportunityService] Loaded opportunities from cache: ${cached.length}');
-        return OpportunitiesFetchResult(opportunities: cached, fromCache: true);
+        return OpportunitiesFetchResult(
+          opportunities: cached,
+          fromCache: true,
+          lastUpdated: await _loadCacheUpdatedAt(),
+        );
       }
 
       debugPrint('[OpportunityService] No cached opportunities available');
@@ -71,12 +87,13 @@ class OpportunityService {
     }
   }
 
-  Future<void> _saveCache(List<dynamic> rawJsonList) async {
+  Future<void> _saveCache(List<dynamic> rawJsonList, DateTime updatedAt) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_cacheKey, jsonEncode(rawJsonList));
+    await prefs.setString(_cacheUpdatedAtKey, updatedAt.toIso8601String());
   }
 
-  Future<List<OpportunityModel>> _loadCache() async {
+  Future<List<OpportunityModel>> _loadCacheWithMetadata() async {
     final prefs = await SharedPreferences.getInstance();
     final cached = prefs.getString(_cacheKey);
     if (cached == null || cached.isEmpty) {
@@ -96,5 +113,15 @@ class OpportunityService {
     } catch (_) {
       return const [];
     }
+  }
+
+  Future<DateTime?> _loadCacheUpdatedAt() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_cacheUpdatedAtKey);
+    if (raw == null || raw.isEmpty) {
+      return null;
+    }
+
+    return DateTime.tryParse(raw);
   }
 }
