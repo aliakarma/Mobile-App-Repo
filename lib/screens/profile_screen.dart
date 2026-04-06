@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'sop_analyzer_screen.dart';
+
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
@@ -9,8 +11,17 @@ class ProfileScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Profile'),
       ),
-      body: const Center(
-        child: Text('Profile content goes here'),
+      body: Center(
+        child: ElevatedButton(
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const SopAnalyzerScreen(),
+              ),
+            );
+          },
+          child: const Text('Open SOP Analyzer'),
+        ),
       ),
     );
   }
