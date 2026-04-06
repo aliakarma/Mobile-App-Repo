@@ -22,6 +22,15 @@ Smart Application Intelligence System is a mobile-first Flutter app with a FastA
 - FastAPI endpoints for opportunities and SOP analysis.
 - Scholarship scraper module (BeautifulSoup) producing JSON data source.
 
+## Screenshots
+
+- Dashboard: `docs/screenshots/dashboard.png`
+- Applications: `docs/screenshots/applications.png`
+- Opportunities: `docs/screenshots/opportunities.png`
+- Profile + SOP Analyzer: `docs/screenshots/profile-sop.png`
+
+Replace these placeholder paths with real screenshots when publishing updates.
+
 ## Tech Stack
 
 ### Mobile App
@@ -103,6 +112,26 @@ set GEMINI_MODEL=gemini-1.5-flash
 - Review ranked opportunities in Opportunities tab.
 - View status distribution chart in Dashboard.
 - Analyze SOP from Profile -> SOP Analyzer.
+
+## How It Works
+
+- Fit Score: Combines profile quality (GPA, field alignment, research, publications) into a score from 0 to 100.
+- Risk Level: Uses deadline urgency and readiness to classify each application as Low, Medium, or High risk.
+- Recommendation:
+  - Apply: strong fit and readiness
+  - Prepare More: promising but incomplete preparation
+  - Skip: low fit or high urgency with low readiness
+- Opportunity Ranking: Blends fit score and deadline proximity, then highlights the top 3.
+
+## Demo Steps
+
+- Start backend and Flutter app.
+- Open Profile tab and save academic profile details.
+- Add one or more applications from Applications tab.
+- Confirm fit score, risk level, recommendation, and reason are generated automatically.
+- Open Opportunities tab and verify ranked results with top-3 highlights.
+- Open Dashboard to view status distribution chart.
+- Run SOP analysis from Profile -> Open SOP Analyzer.
 
 ## Notes
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from typing import Any
 
 import requests
@@ -67,15 +68,13 @@ def analyze_sop_with_gemini(sop_text: str) -> SOPAnalysisResponse:
         },
     }
 
-    try:
-        response = requests.post(
-            url,
-            params={"key": api_key},
-            json=payload,
-            timeout=30,
-        )
-    except requests.RequestException as exc:
-        raise GeminiServiceError(f"Gemini request failed: {exc}") from exc
+    response = _request_with_retry(
+        url=url,
+        api_key=api_key,
+        payload=payload,
+        max_attempts=3,
+        timeout_seconds=15,
+    )
 
     if response.status_code != 200:
         detail = _safe_error_detail(response)
@@ -168,3 +167,32 @@ def _safe_error_detail(response: requests.Response) -> str:
                 return message.strip()
 
     return "Unknown error"
+
+
+def _request_with_retry(
+    *,
+    url: str,
+    api_key: str,
+    payload: dict[str, Any],
+    max_attempts: int,
+    timeout_seconds: int,
+) -> requests.Response:
+    last_error: Exception | None = None
+
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return requests.post(
+                url,
+                params={"key": api_key},
+                json=payload,
+                timeout=timeout_seconds,
+            )
+        except requests.Timeout as exc:
+            last_error = exc
+        except requests.RequestException as exc:
+            last_error = exc
+
+        if attempt < max_attempts:
+            time.sleep(0.5 * attempt)
+
+    raise GeminiServiceError(f"Gemini request failed after retries: {last_error}")
