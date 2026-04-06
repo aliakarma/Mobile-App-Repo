@@ -5,11 +5,14 @@ class ApplicationService {
 
   // Placeholder service; backend integration will be added later.
   List<ApplicationModel> getSampleApplications() {
-    return const [
+    return [
       ApplicationModel(
-        id: '1',
+        id: 1,
         title: 'Sample Application',
-        status: 'Draft',
+        deadline: DateTime.now().add(const Duration(days: 14)),
+        status: 'Applied',
+        fitScore: 0.0,
+        riskLevel: 'Low',
       ),
     ];
   }
