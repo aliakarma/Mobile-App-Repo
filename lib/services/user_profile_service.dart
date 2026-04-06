@@ -22,6 +22,7 @@ class UserProfileService {
     if (raw == null || raw.isEmpty) {
       return const UserProfileModel(
         gpa: 3.0,
+        gpaScale: 4,
         fieldOfStudy: 'General',
         researchExperienceLevel: 'none',
         publications: 0,
@@ -39,6 +40,7 @@ class UserProfileService {
 
     return const UserProfileModel(
       gpa: 3.0,
+      gpaScale: 4,
       fieldOfStudy: 'General',
       researchExperienceLevel: 'none',
       publications: 0,
