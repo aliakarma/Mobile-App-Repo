@@ -5,6 +5,7 @@ import '../models/user_profile_model.dart';
 import '../services/application_intelligence_service.dart';
 import '../services/opportunity_service.dart';
 import '../services/user_profile_service.dart';
+import '../widgets/app_ui.dart';
 
 class OpportunitiesScreen extends StatefulWidget {
   const OpportunitiesScreen({super.key});
@@ -16,9 +17,10 @@ class OpportunitiesScreen extends StatefulWidget {
 class _OpportunitiesScreenState extends State<OpportunitiesScreen> {
   final OpportunityService _opportunityService = const OpportunityService();
   final UserProfileService _profileService = UserProfileService.instance;
-  List<OpportunityModel> _opportunities = const [];
+
   List<_RankedOpportunity> _rankedOpportunities = const [];
   bool _isLoading = true;
+  bool _isUsingCachedData = false;
   String? _errorMessage;
 
   @override
@@ -31,24 +33,28 @@ class _OpportunitiesScreenState extends State<OpportunitiesScreen> {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
+      _isUsingCachedData = false;
     });
 
     try {
-      final opportunities = await _opportunityService.fetchOpportunities();
+      final result = await _opportunityService.fetchOpportunities();
       final profile = await _profileService.getProfile();
-      final ranked = _rankOpportunities(opportunities, profile);
+      final ranked = _rankOpportunities(result.opportunities, profile);
+
       if (!mounted) {
         return;
       }
+
       setState(() {
-        _opportunities = opportunities;
         _rankedOpportunities = ranked;
+        _isUsingCachedData = result.fromCache;
         _isLoading = false;
       });
     } catch (error) {
       if (!mounted) {
         return;
       }
+
       setState(() {
         _errorMessage = error.toString();
         _isLoading = false;
@@ -59,9 +65,7 @@ class _OpportunitiesScreenState extends State<OpportunitiesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Opportunities'),
-      ),
+      appBar: AppBar(title: const Text('Opportunities')),
       body: _buildBody(),
     );
   }
@@ -72,72 +76,133 @@ class _OpportunitiesScreenState extends State<OpportunitiesScreen> {
     }
 
     if (_errorMessage != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Failed to load opportunities.'),
-              const SizedBox(height: 8),
-              Text(
-                _errorMessage!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.redAccent),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _loadOpportunities,
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
-        ),
+      return ErrorStateView(
+        title: 'Failed to load opportunities',
+        message: _errorMessage!,
+        onRetry: _loadOpportunities,
       );
     }
 
-    if (_opportunities.isEmpty) {
-      return const Center(child: Text('No opportunities available.'));
+    if (_rankedOpportunities.isEmpty) {
+      return const EmptyStateView(
+        icon: Icons.travel_explore_outlined,
+        title: 'No opportunities found',
+        subtitle: 'Try again later or check your backend connection.',
+      );
     }
 
-    return RefreshIndicator(
-      onRefresh: _loadOpportunities,
-      child: ListView.separated(
-        itemCount: _rankedOpportunities.length,
-        separatorBuilder: (_, __) => const Divider(height: 1),
-        itemBuilder: (context, index) {
-          final ranked = _rankedOpportunities[index];
-          final opportunity = ranked.opportunity;
-          final isTopThree = index < 3;
-
-          return Container(
-            color: isTopThree ? Colors.amber.shade50 : null,
-            child: ListTile(
-              title: Text(
-                '#${index + 1} ${opportunity.title}',
-                style: TextStyle(
-                  fontWeight: isTopThree ? FontWeight.w700 : FontWeight.w500,
-                ),
-              ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 4),
-                  Text('Deadline: ${opportunity.deadline}'),
-                  Text('Provider: ${opportunity.provider}'),
-                  Text('Fit score: ${ranked.fitScore.toStringAsFixed(1)}'),
-                  Text(
-                    'Ranking score: ${ranked.rankingScore.toStringAsFixed(1)}',
-                  ),
-                ],
-              ),
-              trailing: isTopThree
-                  ? const Icon(Icons.workspace_premium, color: Colors.orange)
-                  : null,
+    return Column(
+      children: [
+        if (_isUsingCachedData)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.s16,
+              vertical: AppSpacing.s8,
             ),
-          );
-        },
-      ),
+            color: Colors.amber.shade50,
+            child: Text(
+              'Showing cached data (offline mode)',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.amber.shade900,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+          ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: _loadOpportunities,
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.s8),
+              itemCount: _rankedOpportunities.length,
+              separatorBuilder: (_, __) =>
+                  const SizedBox(height: AppSpacing.s8),
+              itemBuilder: (context, index) {
+                final ranked = _rankedOpportunities[index];
+                final opportunity = ranked.opportunity;
+                final isTopThree = index < 3;
+
+                return AppCard(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 28,
+                        height: 28,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: isTopThree
+                              ? Colors.orange.shade600
+                              : Colors.blueGrey.shade400,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Text(
+                          '${index + 1}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.s12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    opportunity.title,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.w700),
+                                  ),
+                                ),
+                                if (isTopThree)
+                                  const Icon(
+                                    Icons.workspace_premium,
+                                    color: Colors.orange,
+                                    size: 20,
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: AppSpacing.s8),
+                            Text(
+                              'Deadline: ${opportunity.deadline}',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                            const SizedBox(height: AppSpacing.s8),
+                            Text(
+                              'Provider: ${opportunity.provider}',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                            const SizedBox(height: AppSpacing.s12),
+                            Text(
+                              'Fit Score: ${ranked.fitScore.toStringAsFixed(1)}',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleSmall
+                                  ?.copyWith(fontWeight: FontWeight.w700),
+                            ),
+                            const SizedBox(height: AppSpacing.s8),
+                            Text(
+                              'Ranking Score: ${ranked.rankingScore.toStringAsFixed(1)}',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -145,10 +210,14 @@ class _OpportunitiesScreenState extends State<OpportunitiesScreen> {
     List<OpportunityModel> opportunities,
     UserProfileModel profile,
   ) {
+    final normalizedGpa = profile.gpaScale <= 4
+        ? profile.gpa
+        : (profile.gpa / profile.gpaScale) * 4.0;
+
     final ranked = opportunities.map((opportunity) {
       final daysToDeadline = _daysToDeadline(opportunity.deadline);
       final fitScore = ApplicationIntelligenceService.calculateFitScore(
-        gpa: profile.gpa,
+        gpa: normalizedGpa,
         field:
             '${profile.fieldOfStudy} ${opportunity.title} ${opportunity.eligibility}',
         researchExperience: profile.researchExperienceLevel != 'none',
@@ -174,6 +243,7 @@ class _OpportunitiesScreenState extends State<OpportunitiesScreen> {
     if (parsedDate == null) {
       return 90;
     }
+
     final days = parsedDate.difference(DateTime.now()).inDays;
     return days < 0 ? 0 : days;
   }

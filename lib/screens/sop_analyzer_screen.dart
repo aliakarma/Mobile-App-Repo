@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/sop_analysis_model.dart';
 import '../services/sop_service.dart';
+import '../widgets/app_ui.dart';
 
 class SopAnalyzerScreen extends StatefulWidget {
   const SopAnalyzerScreen({super.key});
@@ -11,12 +12,17 @@ class SopAnalyzerScreen extends StatefulWidget {
 }
 
 class _SopAnalyzerScreenState extends State<SopAnalyzerScreen> {
+  static const int _minWordCount = 200;
+  static const Duration _debounceWindow = Duration(milliseconds: 1200);
+
   final TextEditingController _sopController = TextEditingController();
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final SopService _sopService = const SopService();
 
   SopAnalysisModel? _analysis;
   bool _isLoading = false;
   String? _errorMessage;
+  DateTime? _lastSubmitAttempt;
 
   @override
   void dispose() {
@@ -24,14 +30,33 @@ class _SopAnalyzerScreenState extends State<SopAnalyzerScreen> {
     super.dispose();
   }
 
+  int _wordCount(String text) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) {
+      return 0;
+    }
+    return trimmed
+        .split(RegExp(r'\s+'))
+        .where((word) => word.isNotEmpty)
+        .length;
+  }
+
   Future<void> _submitSop() async {
-    final sopText = _sopController.text.trim();
-    if (sopText.isEmpty) {
+    final now = DateTime.now();
+    if (_lastSubmitAttempt != null &&
+        now.difference(_lastSubmitAttempt!) < _debounceWindow) {
       setState(() {
-        _errorMessage = 'Please enter your SOP text.';
+        _errorMessage = 'Please wait a moment before submitting again.';
       });
       return;
     }
+    _lastSubmitAttempt = now;
+
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
+
+    final sopText = _sopController.text.trim();
 
     setState(() {
       _isLoading = true;
@@ -61,64 +86,91 @@ class _SopAnalyzerScreenState extends State<SopAnalyzerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final currentWordCount = _wordCount(_sopController.text);
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('SOP Analyzer'),
-      ),
+      appBar: AppBar(title: const Text('SOP Analyzer')),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextField(
-                controller: _sopController,
-                maxLines: 10,
-                decoration: const InputDecoration(
-                  labelText: 'Paste your SOP text',
-                  alignLabelWithHint: true,
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: _isLoading ? null : _submitSop,
-                child: _isLoading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Analyze SOP'),
-              ),
-              const SizedBox(height: 16),
-              if (_errorMessage != null)
-                Text(
-                  _errorMessage!,
-                  style: const TextStyle(color: Colors.redAccent),
-                ),
-              if (_analysis != null) ...[
-                _SectionCard(
-                  title: 'Score',
-                  child: Text(
-                    _analysis!.score.toString(),
-                    style: Theme.of(context).textTheme.headlineMedium,
+          padding: const EdgeInsets.all(AppSpacing.s16),
+          child: Form(
+            key: _formKey,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextFormField(
+                  controller: _sopController,
+                  maxLines: 12,
+                  onChanged: (_) {
+                    setState(() {});
+                  },
+                  decoration: const InputDecoration(
+                    labelText: 'Paste your SOP text',
+                    alignLabelWithHint: true,
+                    border: OutlineInputBorder(),
                   ),
+                  validator: (value) {
+                    final text = value?.trim() ?? '';
+                    if (text.isEmpty) {
+                      return 'Please enter your SOP text.';
+                    }
+                    if (_wordCount(text) < _minWordCount) {
+                      return 'Minimum $_minWordCount words required.';
+                    }
+                    return null;
+                  },
                 ),
-                _SectionCard(
-                  title: 'Strengths',
-                  child: _BulletedList(items: _analysis!.strengths),
+                const SizedBox(height: AppSpacing.s8),
+                Text(
+                  'Word count: $currentWordCount / $_minWordCount minimum',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: currentWordCount >= _minWordCount
+                            ? Colors.green.shade700
+                            : Colors.grey.shade700,
+                      ),
                 ),
-                _SectionCard(
-                  title: 'Weaknesses',
-                  child: _BulletedList(items: _analysis!.weaknesses),
+                const SizedBox(height: AppSpacing.s12),
+                ElevatedButton(
+                  onPressed: _isLoading ? null : _submitSop,
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Analyze SOP'),
                 ),
-                _SectionCard(
-                  title: 'Suggestions',
-                  child: _BulletedList(items: _analysis!.suggestions),
-                ),
+                const SizedBox(height: AppSpacing.s16),
+                if (_errorMessage != null)
+                  ErrorStateView(
+                    title: 'SOP analysis failed',
+                    message: _errorMessage!,
+                    onRetry: _isLoading ? () {} : _submitSop,
+                  ),
+                if (_analysis != null) ...[
+                  _SectionCard(
+                    title: 'Score',
+                    child: Text(
+                      _analysis!.score.toString(),
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                  ),
+                  _SectionCard(
+                    title: 'Strengths',
+                    child: _BulletedList(items: _analysis!.strengths),
+                  ),
+                  _SectionCard(
+                    title: 'Weaknesses',
+                    child: _BulletedList(items: _analysis!.weaknesses),
+                  ),
+                  _SectionCard(
+                    title: 'Suggestions',
+                    child: _BulletedList(items: _analysis!.suggestions),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -134,18 +186,20 @@ class _SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(top: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            child,
-          ],
-        ),
+    return AppCard(
+      margin: const EdgeInsets.only(top: AppSpacing.s12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(height: AppSpacing.s8),
+          child,
+        ],
       ),
     );
   }
@@ -168,7 +222,7 @@ class _BulletedList extends StatelessWidget {
           .map(
             (item) => Padding(
               padding: const EdgeInsets.only(bottom: 6),
-              child: Text('• $item'),
+              child: Text('- $item'),
             ),
           )
           .toList(),

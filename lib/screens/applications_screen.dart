@@ -4,6 +4,7 @@ import '../database/local_database.dart';
 import '../models/application_model.dart';
 import '../services/application_intelligence_service.dart';
 import '../services/user_profile_service.dart';
+import '../widgets/app_ui.dart';
 
 class ApplicationsScreen extends StatefulWidget {
   const ApplicationsScreen({super.key});
@@ -77,7 +78,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.s12),
                     DropdownButtonFormField<String>(
                       initialValue: selectedStatus,
                       decoration: const InputDecoration(
@@ -104,7 +105,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
                         });
                       },
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.s12),
                     InkWell(
                       onTap: () async {
                         final now = DateTime.now();
@@ -154,13 +155,17 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
                       return;
                     }
 
-                    await _databaseHelper.insertApplication(
-                      await _buildScoredApplication(
-                        title: titleController.text.trim(),
-                        deadline: selectedDeadline!,
-                        status: selectedStatus,
-                      ),
+                    final newApplication = await _buildScoredApplication(
+                      title: titleController.text.trim(),
+                      deadline: selectedDeadline!,
+                      status: selectedStatus,
                     );
+
+                    debugPrint(
+                      '[Applications] Create title="${newApplication.title}" fit=${newApplication.fitScore.toStringAsFixed(1)} risk=${newApplication.riskLevel} recommendation=${newApplication.recommendation}',
+                    );
+
+                    await _databaseHelper.insertApplication(newApplication);
 
                     if (context.mounted) {
                       Navigator.of(context).pop();
@@ -188,7 +193,6 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
       case 'Interview':
         return 0.7;
       case 'Offer':
-        return 1.0;
       case 'Rejected':
         return 1.0;
       default:
@@ -204,8 +208,12 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
     final profile = await _profileService.getProfile();
     final hasResearch = profile.researchExperienceLevel != 'none';
 
+    final normalizedGpa = profile.gpaScale <= 4
+        ? profile.gpa
+        : (profile.gpa / profile.gpaScale) * 4.0;
+
     final fitScore = ApplicationIntelligenceService.calculateFitScore(
-      gpa: profile.gpa,
+      gpa: normalizedGpa,
       field: profile.fieldOfStudy,
       researchExperience: hasResearch,
       publications: profile.publications,
@@ -256,11 +264,6 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
           checklistProgress: 85,
         );
       case 'Offer':
-        return ApplicationIntelligenceService.calculateReadinessScore(
-          documentsComplete: true,
-          sopReady: true,
-          checklistProgress: 100,
-        );
       case 'Rejected':
         return ApplicationIntelligenceService.calculateReadinessScore(
           documentsComplete: true,
@@ -292,6 +295,17 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
     }
   }
 
+  String _recommendationReasonForApplication(ApplicationModel application) {
+    final readinessScore = _readinessFromStatus(application.status);
+    final daysUntilDeadline = _daysUntilDeadline(application.deadline);
+
+    return ApplicationIntelligenceService.getRecommendationReason(
+      fitScore: application.fitScore,
+      readinessScore: readinessScore,
+      daysToDeadline: daysUntilDeadline,
+    );
+  }
+
   Color _riskColor(String riskLevel) {
     switch (riskLevel.toLowerCase()) {
       case 'high':
@@ -306,11 +320,11 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
   Color _recommendationColor(String recommendation) {
     switch (recommendation) {
       case 'Apply':
-        return Colors.green.shade700;
+        return Colors.blue.shade700;
       case 'Skip':
-        return Colors.red.shade700;
+        return Colors.grey.shade700;
       default:
-        return Colors.orange.shade700;
+        return Colors.indigo.shade600;
     }
   }
 
@@ -323,80 +337,98 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Applications'),
-      ),
+      appBar: AppBar(title: const Text('Applications')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _applications.isEmpty
-              ? const Center(child: Text('No applications yet.'))
+              ? EmptyStateView(
+                  icon: Icons.assignment_outlined,
+                  title: 'No applications yet',
+                  subtitle: 'Start tracking your first application.',
+                  actionLabel: 'Add Application',
+                  onAction: _showAddApplicationDialog,
+                )
               : ListView.separated(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.s8),
                   itemCount: _applications.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  separatorBuilder: (_, __) =>
+                      const SizedBox(height: AppSpacing.s8),
                   itemBuilder: (context, index) {
                     final application = _applications[index];
                     final progress = _progressFromStatus(application.status);
-                    return Card(
-                      margin: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    application.title,
-                                    style:
-                                        Theme.of(context).textTheme.titleMedium,
-                                  ),
+
+                    return AppCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  application.title,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.w700),
                                 ),
-                                IconButton(
-                                  icon: const Icon(Icons.delete_outline),
-                                  onPressed: application.id == null
-                                      ? null
-                                      : () =>
-                                          _deleteApplication(application.id!),
-                                ),
-                              ],
-                            ),
-                            Text(
-                                'Deadline: ${_formatDate(application.deadline)}'),
-                            Text('Status: ${application.status}'),
-                            const SizedBox(height: 8),
-                            LinearProgressIndicator(value: progress),
-                            const SizedBox(height: 10),
-                            Text(
-                              'Fit Score: ${application.fitScore.toStringAsFixed(1)}',
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                            const SizedBox(height: 8),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                Chip(
-                                  backgroundColor:
-                                      _riskColor(application.riskLevel),
-                                  label: Text(
-                                    'Risk: ${application.riskLevel}',
-                                    style: const TextStyle(color: Colors.white),
-                                  ),
-                                ),
-                                Chip(
-                                  backgroundColor: _recommendationColor(
-                                      application.recommendation),
-                                  label: Text(
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline),
+                                onPressed: application.id == null
+                                    ? null
+                                    : () => _deleteApplication(application.id!),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: AppSpacing.s8),
+                          Text(
+                            'Deadline: ${_formatDate(application.deadline)}',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                          const SizedBox(height: AppSpacing.s8),
+                          Text(
+                            'Status: ${application.status}',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                          const SizedBox(height: AppSpacing.s12),
+                          LinearProgressIndicator(value: progress),
+                          const SizedBox(height: AppSpacing.s12),
+                          Text(
+                            'Fit Score: ${application.fitScore.toStringAsFixed(1)}',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: AppSpacing.s12),
+                          Wrap(
+                            spacing: AppSpacing.s8,
+                            runSpacing: AppSpacing.s8,
+                            children: [
+                              LabelChip(
+                                label: 'Risk: ${application.riskLevel}',
+                                backgroundColor:
+                                    _riskColor(application.riskLevel),
+                              ),
+                              LabelChip(
+                                label:
                                     'Recommendation: ${application.recommendation}',
-                                    style: const TextStyle(color: Colors.white),
-                                  ),
+                                backgroundColor: _recommendationColor(
+                                  application.recommendation,
                                 ),
-                              ],
-                            ),
-                          ],
-                        ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: AppSpacing.s8),
+                          Text(
+                            _recommendationReasonForApplication(application),
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Colors.grey.shade700,
+                                    ),
+                          ),
+                        ],
                       ),
                     );
                   },

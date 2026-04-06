@@ -11,6 +11,7 @@ class SopService {
 
   Future<SopAnalysisModel> analyzeSop(String sopText) async {
     final uri = Uri.parse('$baseUrl/analyze-sop');
+    debugPrint('[SOP] POST /analyze-sop');
 
     final response = await http.post(
       uri,
@@ -18,15 +19,19 @@ class SopService {
       body: jsonEncode({'text': sopText}),
     );
 
+    debugPrint('[SOP] Response status: ${response.statusCode}');
+
     final decodedBody = _decodeBody(response.body);
 
     if (response.statusCode != 200) {
       final errorDetail = decodedBody['detail']?.toString() ??
           response.reasonPhrase ??
           'Unknown backend error';
+      debugPrint('[SOP] Failed: $errorDetail');
       throw Exception('SOP analysis failed: $errorDetail');
     }
 
+    debugPrint('[SOP] Success');
     return SopAnalysisModel.fromJson(decodedBody);
   }
 

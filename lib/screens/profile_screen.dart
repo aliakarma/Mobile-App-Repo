@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/user_profile_model.dart';
 import '../services/user_profile_service.dart';
+import '../widgets/app_ui.dart';
 import 'sop_analyzer_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -19,6 +20,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final UserProfileService _profileService = UserProfileService.instance;
 
   String _researchLevel = 'none';
+  int _gpaScale = 4;
   bool _isLoading = true;
 
   @override
@@ -45,6 +47,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _fieldController.text = profile.fieldOfStudy;
       _publicationsController.text = profile.publications.toString();
       _researchLevel = profile.researchExperienceLevel;
+      _gpaScale = profile.gpaScale;
       _isLoading = false;
     });
   }
@@ -56,6 +59,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final profile = UserProfileModel(
       gpa: double.parse(_gpaController.text.trim()),
+      gpaScale: _gpaScale,
       fieldOfStudy: _fieldController.text.trim(),
       researchExperienceLevel: _researchLevel,
       publications: int.parse(_publicationsController.text.trim()),
@@ -79,12 +83,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSpacing.s16),
               child: Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    DropdownButtonFormField<int>(
+                      initialValue: _gpaScale,
+                      decoration: const InputDecoration(
+                        labelText: 'GPA scale',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 4, child: Text('0 - 4')),
+                        DropdownMenuItem(value: 10, child: Text('0 - 10')),
+                      ],
+                      onChanged: (value) {
+                        if (value == null) {
+                          return;
+                        }
+                        setState(() {
+                          _gpaScale = value;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: AppSpacing.s12),
                     TextFormField(
                       controller: _gpaController,
                       keyboardType: const TextInputType.numberWithOptions(
@@ -96,13 +120,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       validator: (value) {
                         final parsed = double.tryParse(value?.trim() ?? '');
-                        if (parsed == null || parsed < 0 || parsed > 4) {
-                          return 'Enter a GPA between 0 and 4';
+                        if (parsed == null ||
+                            parsed < 0 ||
+                            parsed > _gpaScale) {
+                          return 'Enter a GPA between 0 and $_gpaScale';
                         }
                         return null;
                       },
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.s12),
                     TextFormField(
                       controller: _fieldController,
                       decoration: const InputDecoration(
@@ -116,7 +142,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.s12),
                     DropdownButtonFormField<String>(
                       initialValue: _researchLevel,
                       decoration: const InputDecoration(
@@ -140,7 +166,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         });
                       },
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.s12),
                     TextFormField(
                       controller: _publicationsController,
                       keyboardType: TextInputType.number,
@@ -156,12 +182,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSpacing.s16),
                     ElevatedButton(
                       onPressed: _saveProfile,
                       child: const Text('Save Profile'),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.s12),
                     OutlinedButton(
                       onPressed: () {
                         Navigator.of(context).push(

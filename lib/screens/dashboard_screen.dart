@@ -3,6 +3,7 @@ import 'package:fl_chart/fl_chart.dart';
 
 import '../database/local_database.dart';
 import '../models/application_model.dart';
+import '../widgets/app_ui.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -69,53 +70,75 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : entries.isEmpty
-              ? const Center(child: Text('No application data yet.'))
+              ? const EmptyStateView(
+                  icon: Icons.pie_chart_outline,
+                  title: 'No application data yet',
+                  subtitle: 'Add applications to see status distribution.',
+                )
               : Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSpacing.s16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const Text(
+                      Text(
                         'Applications by Status',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
                       ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        height: 220,
-                        child: PieChart(
-                          PieChartData(
-                            sectionsSpace: 2,
-                            centerSpaceRadius: 40,
-                            sections: List.generate(entries.length, (index) {
-                              final entry = entries[index];
-                              return PieChartSectionData(
-                                color: _segmentColor(index),
-                                value: entry.value.toDouble(),
-                                title: entry.value.toString(),
-                                radius: 72,
-                              );
-                            }),
+                      const SizedBox(height: AppSpacing.s16),
+                      AppCard(
+                        margin: EdgeInsets.zero,
+                        child: SizedBox(
+                          height: 220,
+                          child: PieChart(
+                            PieChartData(
+                              sectionsSpace: 2,
+                              centerSpaceRadius: 40,
+                              sections: List.generate(entries.length, (index) {
+                                final entry = entries[index];
+                                return PieChartSectionData(
+                                  color: _segmentColor(index),
+                                  value: entry.value.toDouble(),
+                                  title: entry.value.toString(),
+                                  radius: 72,
+                                  titleStyle: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                );
+                              }),
+                            ),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: AppSpacing.s12),
                       ...List.generate(entries.length, (index) {
                         final entry = entries[index];
                         return Padding(
                           padding: const EdgeInsets.symmetric(vertical: 4),
                           child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               Container(
                                 width: 12,
                                 height: 12,
                                 color: _segmentColor(index),
                               ),
-                              const SizedBox(width: 8),
-                              Expanded(child: Text(entry.key)),
-                              Text(entry.value.toString()),
+                              const SizedBox(width: AppSpacing.s8),
+                              Expanded(
+                                child: Text(
+                                  entry.key,
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
+                              ),
+                              Text(
+                                entry.value.toString(),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(fontWeight: FontWeight.w700),
+                              ),
                             ],
                           ),
                         );
