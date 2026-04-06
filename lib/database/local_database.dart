@@ -23,7 +23,7 @@ class DatabaseHelper {
 
     return openDatabase(
       dbPath,
-      version: 1,
+      version: 2,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE Applications (
@@ -32,9 +32,17 @@ class DatabaseHelper {
             deadline TEXT NOT NULL,
             status TEXT NOT NULL,
             fit_score REAL NOT NULL,
-            risk_level TEXT NOT NULL
+            risk_level TEXT NOT NULL,
+            recommendation TEXT NOT NULL
           )
         ''');
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute(
+            "ALTER TABLE Applications ADD COLUMN recommendation TEXT NOT NULL DEFAULT 'Prepare More'",
+          );
+        }
       },
     );
   }

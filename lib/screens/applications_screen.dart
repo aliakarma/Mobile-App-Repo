@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../database/local_database.dart';
 import '../models/application_model.dart';
+import '../services/application_intelligence_service.dart';
+import '../services/user_profile_service.dart';
 
 class ApplicationsScreen extends StatefulWidget {
   const ApplicationsScreen({super.key});
@@ -12,6 +14,7 @@ class ApplicationsScreen extends StatefulWidget {
 
 class _ApplicationsScreenState extends State<ApplicationsScreen> {
   final DatabaseHelper _databaseHelper = DatabaseHelper.instance;
+  final UserProfileService _profileService = UserProfileService.instance;
   List<ApplicationModel> _applications = const [];
   bool _isLoading = true;
 
@@ -152,12 +155,10 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
                     }
 
                     await _databaseHelper.insertApplication(
-                      ApplicationModel(
+                      await _buildScoredApplication(
                         title: titleController.text.trim(),
                         deadline: selectedDeadline!,
                         status: selectedStatus,
-                        fitScore: 0.0,
-                        riskLevel: 'Medium',
                       ),
                     );
 
@@ -195,6 +196,124 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
     }
   }
 
+  Future<ApplicationModel> _buildScoredApplication({
+    required String title,
+    required DateTime deadline,
+    required String status,
+  }) async {
+    final profile = await _profileService.getProfile();
+    final hasResearch = profile.researchExperienceLevel != 'none';
+
+    final fitScore = ApplicationIntelligenceService.calculateFitScore(
+      gpa: profile.gpa,
+      field: profile.fieldOfStudy,
+      researchExperience: hasResearch,
+      publications: profile.publications,
+    );
+
+    final readinessScore = _readinessFromStatus(status);
+    final daysUntilDeadline = _daysUntilDeadline(deadline);
+
+    final riskLevelEnum = ApplicationIntelligenceService.calculateRiskLevel(
+      daysUntilDeadline: daysUntilDeadline,
+      readinessScore: readinessScore,
+    );
+
+    final recommendation = ApplicationIntelligenceService.getRecommendation(
+      fitScore: fitScore,
+      readinessScore: readinessScore,
+      daysToDeadline: daysUntilDeadline,
+    );
+
+    return ApplicationModel(
+      title: title,
+      deadline: deadline,
+      status: status,
+      fitScore: fitScore,
+      riskLevel: _riskLevelLabel(riskLevelEnum),
+      recommendation: recommendation,
+    );
+  }
+
+  double _readinessFromStatus(String status) {
+    switch (status) {
+      case 'Applied':
+        return ApplicationIntelligenceService.calculateReadinessScore(
+          documentsComplete: false,
+          sopReady: true,
+          checklistProgress: 35,
+        );
+      case 'In Review':
+        return ApplicationIntelligenceService.calculateReadinessScore(
+          documentsComplete: true,
+          sopReady: true,
+          checklistProgress: 65,
+        );
+      case 'Interview':
+        return ApplicationIntelligenceService.calculateReadinessScore(
+          documentsComplete: true,
+          sopReady: true,
+          checklistProgress: 85,
+        );
+      case 'Offer':
+        return ApplicationIntelligenceService.calculateReadinessScore(
+          documentsComplete: true,
+          sopReady: true,
+          checklistProgress: 100,
+        );
+      case 'Rejected':
+        return ApplicationIntelligenceService.calculateReadinessScore(
+          documentsComplete: true,
+          sopReady: true,
+          checklistProgress: 100,
+        );
+      default:
+        return ApplicationIntelligenceService.calculateReadinessScore(
+          documentsComplete: false,
+          sopReady: false,
+          checklistProgress: 0,
+        );
+    }
+  }
+
+  int _daysUntilDeadline(DateTime deadline) {
+    final days = deadline.difference(DateTime.now()).inDays;
+    return days < 0 ? 0 : days;
+  }
+
+  String _riskLevelLabel(RiskLevel level) {
+    switch (level) {
+      case RiskLevel.low:
+        return 'Low';
+      case RiskLevel.medium:
+        return 'Medium';
+      case RiskLevel.high:
+        return 'High';
+    }
+  }
+
+  Color _riskColor(String riskLevel) {
+    switch (riskLevel.toLowerCase()) {
+      case 'high':
+        return Colors.red.shade600;
+      case 'medium':
+        return Colors.amber.shade700;
+      default:
+        return Colors.green.shade600;
+    }
+  }
+
+  Color _recommendationColor(String recommendation) {
+    switch (recommendation) {
+      case 'Apply':
+        return Colors.green.shade700;
+      case 'Skip':
+        return Colors.red.shade700;
+      default:
+        return Colors.orange.shade700;
+    }
+  }
+
   String _formatDate(DateTime date) {
     final month = date.month.toString().padLeft(2, '0');
     final day = date.day.toString().padLeft(2, '0');
@@ -213,35 +332,71 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
               ? const Center(child: Text('No applications yet.'))
               : ListView.separated(
                   itemCount: _applications.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
                   itemBuilder: (context, index) {
                     final application = _applications[index];
                     final progress = _progressFromStatus(application.status);
-                    return ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                      title: Text(application.title),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 4),
-                          Text(
-                              'Deadline: ${_formatDate(application.deadline)}'),
-                          Text('Status: ${application.status}'),
-                          Text(
-                            'Fit score: ${application.fitScore.toStringAsFixed(1)} (placeholder)',
-                          ),
-                          const SizedBox(height: 8),
-                          LinearProgressIndicator(value: progress),
-                        ],
-                      ),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete_outline),
-                        onPressed: application.id == null
-                            ? null
-                            : () => _deleteApplication(application.id!),
+                    return Card(
+                      margin: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    application.title,
+                                    style:
+                                        Theme.of(context).textTheme.titleMedium,
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline),
+                                  onPressed: application.id == null
+                                      ? null
+                                      : () =>
+                                          _deleteApplication(application.id!),
+                                ),
+                              ],
+                            ),
+                            Text(
+                                'Deadline: ${_formatDate(application.deadline)}'),
+                            Text('Status: ${application.status}'),
+                            const SizedBox(height: 8),
+                            LinearProgressIndicator(value: progress),
+                            const SizedBox(height: 10),
+                            Text(
+                              'Fit Score: ${application.fitScore.toStringAsFixed(1)}',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                Chip(
+                                  backgroundColor:
+                                      _riskColor(application.riskLevel),
+                                  label: Text(
+                                    'Risk: ${application.riskLevel}',
+                                    style: const TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                                Chip(
+                                  backgroundColor: _recommendationColor(
+                                      application.recommendation),
+                                  label: Text(
+                                    'Recommendation: ${application.recommendation}',
+                                    style: const TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   },

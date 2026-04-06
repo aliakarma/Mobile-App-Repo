@@ -13,6 +13,7 @@ class ApplicationService {
         status: 'Applied',
         fitScore: 0.0,
         riskLevel: 'Low',
+        recommendation: 'Prepare More',
       ),
     ];
   }

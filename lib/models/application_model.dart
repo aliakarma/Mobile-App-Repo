@@ -6,6 +6,7 @@ class ApplicationModel {
     required this.status,
     required this.fitScore,
     required this.riskLevel,
+    required this.recommendation,
   });
 
   final int? id;
@@ -14,6 +15,7 @@ class ApplicationModel {
   final String status;
   final double fitScore;
   final String riskLevel;
+  final String recommendation;
 
   Map<String, Object?> toMap() {
     return {
@@ -23,6 +25,7 @@ class ApplicationModel {
       'status': status,
       'fit_score': fitScore,
       'risk_level': riskLevel,
+      'recommendation': recommendation,
     };
   }
 
@@ -34,6 +37,7 @@ class ApplicationModel {
       status: map['status'] as String,
       fitScore: (map['fit_score'] as num).toDouble(),
       riskLevel: map['risk_level'] as String,
+      recommendation: map['recommendation'] as String? ?? 'Prepare More',
     );
   }
 }
