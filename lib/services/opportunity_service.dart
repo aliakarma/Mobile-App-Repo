@@ -19,13 +19,28 @@ class OpportunitiesFetchResult {
 }
 
 class OpportunityService {
-  const OpportunityService({this.baseUrl = 'http://10.0.2.2:8000'});
+  OpportunityService({String? baseUrl}) : baseUrl = baseUrl ?? defaultBaseUrl;
 
-  // Android emulator can use 10.0.2.2 to reach localhost backend.
-  // For physical devices, replace with your machine IP.
   final String baseUrl;
   static const String _cacheKey = 'cached_opportunities';
   static const String _cacheUpdatedAtKey = 'cached_opportunities_updated_at';
+
+  static String get defaultBaseUrl {
+    if (kIsWeb) {
+      return 'http://localhost:8000';
+    }
+
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return 'http://10.0.2.2:8001';
+      case TargetPlatform.iOS:
+      case TargetPlatform.macOS:
+      case TargetPlatform.windows:
+      case TargetPlatform.linux:
+      case TargetPlatform.fuchsia:
+        return 'http://localhost:8001';
+    }
+  }
 
   Future<OpportunitiesFetchResult> fetchOpportunities({
     bool forceRefresh = false,

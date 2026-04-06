@@ -17,7 +17,7 @@ class _SopAnalyzerScreenState extends State<SopAnalyzerScreen> {
 
   final TextEditingController _sopController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  final SopService _sopService = const SopService();
+  final SopService _sopService = SopService();
 
   SopAnalysisModel? _analysis;
   bool _isLoading = false;

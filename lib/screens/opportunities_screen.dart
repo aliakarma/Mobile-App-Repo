@@ -15,7 +15,7 @@ class OpportunitiesScreen extends StatefulWidget {
 }
 
 class _OpportunitiesScreenState extends State<OpportunitiesScreen> {
-  final OpportunityService _opportunityService = const OpportunityService();
+  final OpportunityService _opportunityService = OpportunityService();
   final UserProfileService _profileService = UserProfileService.instance;
 
   List<_RankedOpportunity> _rankedOpportunities = const [];

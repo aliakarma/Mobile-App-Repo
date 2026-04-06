@@ -6,9 +6,25 @@ import 'package:http/http.dart' as http;
 import '../models/sop_analysis_model.dart';
 
 class SopService {
-  const SopService({this.baseUrl = 'http://10.0.2.2:8000'});
+  SopService({String? baseUrl}) : baseUrl = baseUrl ?? defaultBaseUrl;
 
   final String baseUrl;
+  static String get defaultBaseUrl {
+    if (kIsWeb) {
+      return 'http://localhost:8000';
+    }
+
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return 'http://10.0.2.2:8001';
+      case TargetPlatform.iOS:
+      case TargetPlatform.macOS:
+      case TargetPlatform.windows:
+      case TargetPlatform.linux:
+      case TargetPlatform.fuchsia:
+        return 'http://localhost:8001';
+    }
+  }
 
   Future<SopAnalysisModel> analyzeSop(String sopText) async {
     final uri = Uri.parse('$baseUrl/analyze-sop');
