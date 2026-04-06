@@ -49,6 +49,41 @@ class ApplicationIntelligenceService {
     return RiskLevel.low;
   }
 
+  static String getRecommendation({
+    required double fitScore,
+    required double readinessScore,
+    required int daysToDeadline,
+  }) {
+    final clampedFit = _clamp(fitScore, 0, 100);
+    final clampedReadiness = _clamp(readinessScore, 0, 100);
+    final urgencyScore = _deadlineUrgencyScore(daysToDeadline);
+
+    // Combined readiness to submit now: profile fit + current preparation.
+    final confidenceScore = (clampedFit * 0.55) + (clampedReadiness * 0.45);
+
+    final isVeryUrgent = urgencyScore >= 75;
+    final isSoon = urgencyScore >= 55;
+
+    if (confidenceScore >= 75 && clampedReadiness >= 60) {
+      return 'Apply';
+    }
+
+    // Urgent deadlines with low preparation are high-risk submissions.
+    if (isVeryUrgent && clampedReadiness < 45) {
+      return 'Skip';
+    }
+
+    if (isSoon && confidenceScore >= 65) {
+      return 'Apply';
+    }
+
+    if (confidenceScore < 45) {
+      return 'Skip';
+    }
+
+    return 'Prepare More';
+  }
+
   static double _fieldScore(String field) {
     final normalizedField = field.trim().toLowerCase();
 
