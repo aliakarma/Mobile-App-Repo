@@ -84,6 +84,30 @@ class ApplicationIntelligenceService {
     return 'Prepare More';
   }
 
+  static String getRecommendationReason({
+    required double fitScore,
+    required double readinessScore,
+    required int daysToDeadline,
+  }) {
+    if (fitScore >= 75 && readinessScore >= 60) {
+      return 'Reason: High fit and sufficient readiness.';
+    }
+
+    if (daysToDeadline <= 7 && readinessScore < 45) {
+      return 'Reason: Deadline is very close and readiness is low.';
+    }
+
+    if (fitScore < 45) {
+      return 'Reason: Fit is currently too low for this application.';
+    }
+
+    if (readinessScore < 60) {
+      return 'Reason: Profile is promising but preparation needs improvement.';
+    }
+
+    return 'Reason: Moderate fit and timing, improve key sections before applying.';
+  }
+
   static double _fieldScore(String field) {
     final normalizedField = field.trim().toLowerCase();
 
