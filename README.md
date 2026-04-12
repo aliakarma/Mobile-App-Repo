@@ -74,19 +74,47 @@ cd Mobile-App-Repo
 
 ## 2. Run FastAPI backend
 
-```bash
+From the repository root, run:
+
+```powershell
 python -m venv .venv
-.venv\Scripts\activate
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
 pip install -r backend/requirements.txt
-uvicorn backend.main:app --reload
+cd backend
+python -m uvicorn main:app --reload --port 8000
 ```
 
 Backend runs at `http://127.0.0.1:8000`.
+
+Quick check:
+
+- Open `http://127.0.0.1:8000/` in your browser. You should see: `{"message":"Student Application System API is running"}`.
+
+If PowerShell blocks script execution, run this once in the same terminal and activate again:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+
+Common errors and fixes:
+
+- `ModuleNotFoundError: No module named 'routes'`
+  - Cause: server started from repo root with `backend.main:app`.
+  - Fix: run from `backend` folder using `python -m uvicorn main:app --reload --port 8000`.
+- `[WinError 10013] ... access permissions`
+  - Cause: port `8000` is already in use.
+  - Fix: use another port, for example:
+
+```powershell
+python -m uvicorn main:app --reload --port 8001
+```
 
 ## 3. Configure backend access for Flutter
 
 - Android emulator: keep default base URL `http://10.0.2.2:8000`
 - Physical device: replace with your machine LAN IP in Flutter services
+- If you started backend on a different port (for example `8001`), update the Flutter base URL to the same port.
 
 ## 4. Run Flutter app
 
