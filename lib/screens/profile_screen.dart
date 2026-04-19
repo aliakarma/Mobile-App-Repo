@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/user_profile_model.dart';
 import '../services/user_profile_service.dart';
 import '../widgets/app_ui.dart';
+import 'cv_analyzer_screen.dart';
 import 'sop_analyzer_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -39,9 +40,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _loadProfile() async {
     final profile = await _profileService.getProfile();
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
     setState(() {
       _gpaController.text = profile.gpa.toString();
       _fieldController.text = profile.fieldOfStudy;
@@ -53,9 +52,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _saveProfile() async {
-    if (!(_formKey.currentState?.validate() ?? false)) {
-      return;
-    }
+    if (!(_formKey.currentState?.validate() ?? false)) return;
 
     final profile = UserProfileModel(
       gpa: double.parse(_gpaController.text.trim()),
@@ -66,9 +63,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
 
     await _profileService.saveProfile(profile);
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Profile saved successfully.')),
     );
@@ -77,9 +72,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profile'),
-      ),
+      appBar: AppBar(title: const Text('Profile')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
@@ -96,33 +89,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         border: OutlineInputBorder(),
                       ),
                       items: const [
-                        DropdownMenuItem(value: 4, child: Text('0 - 4')),
-                        DropdownMenuItem(value: 10, child: Text('0 - 10')),
+                        DropdownMenuItem(value: 4, child: Text('0 – 4')),
+                        DropdownMenuItem(value: 10, child: Text('0 – 10')),
                       ],
                       onChanged: (value) {
-                        if (value == null) {
-                          return;
-                        }
-                        setState(() {
-                          _gpaScale = value;
-                        });
+                        if (value == null) return;
+                        setState(() => _gpaScale = value);
                       },
                     ),
                     const SizedBox(height: AppSpacing.s12),
                     TextFormField(
                       controller: _gpaController,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
                       decoration: const InputDecoration(
                         labelText: 'GPA',
                         border: OutlineInputBorder(),
                       ),
                       validator: (value) {
                         final parsed = double.tryParse(value?.trim() ?? '');
-                        if (parsed == null ||
-                            parsed < 0 ||
-                            parsed > _gpaScale) {
+                        if (parsed == null || parsed < 0 || parsed > _gpaScale) {
                           return 'Enter a GPA between 0 and $_gpaScale';
                         }
                         return null;
@@ -153,17 +139,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         DropdownMenuItem(value: 'none', child: Text('None')),
                         DropdownMenuItem(value: 'basic', child: Text('Basic')),
                         DropdownMenuItem(
-                          value: 'advanced',
-                          child: Text('Advanced'),
-                        ),
+                            value: 'advanced', child: Text('Advanced')),
                       ],
                       onChanged: (value) {
-                        if (value == null) {
-                          return;
-                        }
-                        setState(() {
-                          _researchLevel = value;
-                        });
+                        if (value == null) return;
+                        setState(() => _researchLevel = value);
                       },
                     ),
                     const SizedBox(height: AppSpacing.s12),
@@ -188,7 +168,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: const Text('Save Profile'),
                     ),
                     const SizedBox(height: AppSpacing.s12),
-                    OutlinedButton(
+
+                    // ---- AI Tools ----
+                    Text(
+                      'AI Tools',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            color: Colors.grey.shade600,
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                    const SizedBox(height: AppSpacing.s8),
+                    OutlinedButton.icon(
                       onPressed: () {
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(
@@ -196,7 +186,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         );
                       },
-                      child: const Text('Open SOP Analyzer'),
+                      icon: const Icon(Icons.text_snippet_outlined),
+                      label: const Text('Open SOP Analyzer'),
+                    ),
+                    const SizedBox(height: AppSpacing.s8),
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const CvAnalyzerScreen(),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.document_scanner_outlined),
+                      label: const Text('Open CV Analyzer'),
                     ),
                   ],
                 ),
