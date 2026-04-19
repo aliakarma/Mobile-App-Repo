@@ -16,7 +16,8 @@ class ApplicationsScreen extends StatefulWidget {
 class _ApplicationsScreenState extends State<ApplicationsScreen> {
   final DatabaseHelper _databaseHelper = DatabaseHelper.instance;
   final UserProfileService _profileService = UserProfileService.instance;
-  String _fitBreakdownText = 'GPA: 68% | Research: 17% | Publications: 15%';
+  final String _fitBreakdownText =
+      ApplicationIntelligenceService.fitBreakdownText();
   List<ApplicationModel> _applications = const [];
   bool _isLoading = true;
 
@@ -32,8 +33,6 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
     });
 
     final applications = await _databaseHelper.fetchApplications();
-    final profile = await _profileService.getProfile();
-    final breakdown = _buildFitBreakdownText(profile.researchExperienceLevel);
 
     if (!mounted) {
       return;
@@ -41,7 +40,6 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
 
     setState(() {
       _applications = applications;
-      _fitBreakdownText = breakdown;
       _isLoading = false;
     });
   }
@@ -336,18 +334,6 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
     final month = date.month.toString().padLeft(2, '0');
     final day = date.day.toString().padLeft(2, '0');
     return '${date.year}-$month-$day';
-  }
-
-  String _buildFitBreakdownText(String researchLevel) {
-    const publicationsWeight = 20;
-
-    final (gpaWeight, researchWeight) = switch (researchLevel) {
-      'advanced' => (40, 40),
-      'basic' => (45, 35),
-      _ => (50, 30),
-    };
-
-    return 'GPA: $gpaWeight% | Research: $researchWeight% | Publications: $publicationsWeight%';
   }
 
   @override
