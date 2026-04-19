@@ -283,8 +283,8 @@ class _CvAnalyzerScreenState extends State<CvAnalyzerScreen>
                   ),
                   const SizedBox(height: AppSpacing.s8),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                     decoration: BoxDecoration(
                       color: scoreColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(20),
@@ -361,8 +361,7 @@ class _CvAnalyzerScreenState extends State<CvAnalyzerScreen>
                   children: analysis.missingKeywords
                       .map(
                         (kw) => Chip(
-                          label: Text(kw,
-                              style: const TextStyle(fontSize: 12)),
+                          label: Text(kw, style: const TextStyle(fontSize: 12)),
                           backgroundColor:
                               const Color(0xFFE65100).withValues(alpha: 0.08),
                           side: const BorderSide(
@@ -420,8 +419,7 @@ class _InfoBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(icon, size: 32,
-              color: Theme.of(context).colorScheme.primary),
+          Icon(icon, size: 32, color: Theme.of(context).colorScheme.primary),
           const SizedBox(width: AppSpacing.s12),
           Expanded(
             child: Column(
