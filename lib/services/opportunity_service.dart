@@ -32,24 +32,24 @@ class OpportunityService {
 
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
-        return 'http://10.0.2.2:8001';
+        return 'http://10.0.2.2:8000';
       case TargetPlatform.iOS:
       case TargetPlatform.macOS:
       case TargetPlatform.windows:
       case TargetPlatform.linux:
       case TargetPlatform.fuchsia:
-        return 'http://localhost:8001';
+        return 'http://localhost:8000';
     }
   }
 
   Future<OpportunitiesFetchResult> fetchOpportunities({
     bool forceRefresh = false,
   }) async {
-    final uri = Uri.parse('$baseUrl/opportunities');
+    final uri = Uri.parse('$baseUrl/opportunities/live');
     try {
       final response = await http.get(uri);
       debugPrint(
-          '[OpportunityService] GET /opportunities -> ${response.statusCode}');
+          '[OpportunityService] GET /opportunities/live -> ${response.statusCode}');
 
       if (response.statusCode != 200) {
         throw Exception(
