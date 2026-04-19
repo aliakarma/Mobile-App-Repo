@@ -101,13 +101,13 @@ If this is not set, SOP/CV endpoints will return a clear error message, while no
 
 ```powershell
 cd backend
-python -m uvicorn main:app --reload --host 127.0.0.1 --port 8000
+python -m uvicorn main:app --reload --host 127.0.0.1 --port 8001
 ```
 
 Backend should be available at:
 
-- `http://127.0.0.1:8000/`
-- `http://127.0.0.1:8000/docs`
+- `http://127.0.0.1:8001/`
+- `http://127.0.0.1:8001/docs`
 
 ### 5. Run Flutter app (new terminal)
 
@@ -123,10 +123,10 @@ flutter run
 
 The app is configured as follows:
 
-- Android emulator: `http://10.0.2.2:8000`
-- Web/Desktop: `http://localhost:8000`
+- Android emulator: `http://10.0.2.2:8001`
+- Web/Desktop: `http://localhost:8001`
 
-So a single backend instance on port `8000` is enough for app features.
+So a single backend instance on port `8001` is enough for app features.
 
 ## 3-Minute Reviewer Validation Checklist
 
@@ -177,13 +177,13 @@ Fix: run from `backend` folder using:
 
 ```powershell
 cd backend
-python -m uvicorn main:app --reload --port 8000
+python -m uvicorn main:app --reload --port 8001
 ```
 
 ### Error: Address already in use / WinError 10013
-Cause: port `8000` is busy.
+Cause: port `8001` is busy.
 
-Fix option 1: free port 8000.
+Fix option 1: free port 8001.
 
 Fix option 2: run backend on another port, then update base URL in:
 - `lib/services/opportunity_service.dart`
