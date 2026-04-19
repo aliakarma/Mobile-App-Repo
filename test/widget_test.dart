@@ -5,7 +5,7 @@ import 'package:smart_application_intelligence_system/main.dart';
 void main() {
   testWidgets('app launches with main navigation', (WidgetTester tester) async {
     await tester.pumpWidget(const SmartApplicationIntelligenceSystemApp());
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('Dashboard'), findsWidgets);
     expect(find.text('Applications'), findsOneWidget);
