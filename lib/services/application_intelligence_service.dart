@@ -92,6 +92,7 @@ class ApplicationIntelligenceService {
     final isVeryUrgent = urgencyScore >= 75;
     final isSoon = urgencyScore >= 55;
 
+    if (clampedFit < 45) return 'Skip';
     if (confidenceScore >= 75 && clampedReadiness >= 60) return 'Apply';
     if (isVeryUrgent && clampedReadiness < 45) return 'Skip';
     if (isSoon && confidenceScore >= 65) return 'Apply';
