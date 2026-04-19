@@ -114,7 +114,7 @@ Backend should be available at:
 Open a second terminal in project root:
 
 ```powershell
-cd C:\Users\Ali Akarma\Documents\GitHub\Mobile-App-Repo
+cd Mobile-App-Repo
 flutter pub get
 flutter run
 ```
