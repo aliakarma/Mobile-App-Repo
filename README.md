@@ -82,14 +82,14 @@ python -m venv .venv
 python -m pip install --upgrade pip
 pip install -r backend/requirements.txt
 cd backend
-python -m uvicorn main:app --reload --port 8000
+python -m uvicorn main:app --reload --port 8080
 ```
 
-Backend runs at `http://127.0.0.1:8000`.
+Backend runs at `http://127.0.0.1:8080`.
 
 Quick check:
 
-- Open `http://127.0.0.1:8000/` in your browser. You should see: `{"message":"Student Application System API is running"}`.
+- Open `http://127.0.0.1:8080/` in your browser. You should see: `{"message":"Student Application System API is running"}`.
 
 If PowerShell blocks script execution, run this once in the same terminal and activate again:
 
@@ -101,9 +101,9 @@ Common errors and fixes:
 
 - `ModuleNotFoundError: No module named 'routes'`
   - Cause: server started from repo root with `backend.main:app`.
-  - Fix: run from `backend` folder using `python -m uvicorn main:app --reload --port 8000`.
-- `[WinError 10013] ... access permissions`
-  - Cause: port `8000` is already in use.
+  - Fix: run from `backend` folder using `python -m uvicorn main:app --reload --port 8080`.
+- `[WinError 10013]` or `[Errno 13]` while binding port
+  - Cause: selected port is already in use.
   - Fix: use another port, for example:
 
 ```powershell
@@ -112,7 +112,7 @@ python -m uvicorn main:app --reload --port 8001
 
 ## 3. Configure backend access for Flutter
 
-- Android emulator: keep default base URL `http://10.0.2.2:8000`
+- Android emulator: use base URL `http://10.0.2.2:8080`
 - Physical device: replace with your machine LAN IP in Flutter services
 - If you started backend on a different port (for example `8001`), update the Flutter base URL to the same port.
 
@@ -160,6 +160,47 @@ set GEMINI_MODEL=gemini-1.5-flash
 - Open Opportunities tab and verify ranked results with top-3 highlights.
 - Open Dashboard to view status distribution chart.
 - Run SOP analysis from Profile -> Open SOP Analyzer.
+
+## Progress #4 Proof (Link UI with SQLite)
+
+This project already links Flutter UI screens with SQLite persistence.
+
+Code evidence:
+
+- SQLite database helper with create table and CRUD methods:
+  - `lib/database/local_database.dart`
+  - `insertApplication(...)`
+  - `fetchApplications(...)`
+  - `deleteApplication(...)`
+- Applications UI reads and writes through SQLite:
+  - `lib/screens/applications_screen.dart`
+  - Loads data using `_databaseHelper.fetchApplications()`
+  - Saves new records using `_databaseHelper.insertApplication(...)`
+  - Deletes records using `_databaseHelper.deleteApplication(...)`
+- Dashboard UI reads SQLite data for status chart:
+  - `lib/screens/dashboard_screen.dart`
+  - Loads data using `_databaseHelper.fetchApplications()`
+
+How to show proof during evaluation:
+
+1. Open app and go to Applications.
+2. Add one new application (title, status, deadline).
+3. Show that the new item appears immediately in the list.
+4. Navigate away (for example Dashboard), then return to Applications.
+5. Show that the same item is still there (proves persistence, not temporary UI state).
+6. Delete the item and show list refreshes.
+7. Open Dashboard and show status chart updates after add/delete.
+
+Suggested evidence to submit:
+
+- One short screen recording (30 to 60 seconds) of the 7 steps above.
+- 3 screenshots:
+  - Before adding item
+  - After adding item
+  - After reopening tab/app showing item still exists
+- Optional code screenshot highlighting:
+  - `DatabaseHelper` methods in `lib/database/local_database.dart`
+  - Insert/fetch/delete calls in `lib/screens/applications_screen.dart`
 
 ## Notes
 
