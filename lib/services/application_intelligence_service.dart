@@ -7,20 +7,20 @@ class ApplicationIntelligenceService {
   // Scoring weight constants — exposed so the UI can display accurate values.
   // These must match the actual calculation below exactly.
   // -------------------------------------------------------------------------
-  static const double gpaMaxScore = 60.0;       // GPA contributes up to 60 pts
-  static const double fieldMaxScore = 12.0;     // Field alignment up to 12 pts
-  static const double researchScore = 15.0;     // Binary: research exp = 15 pts
-  static const double publicationMaxScore = 13.0; // Pubs contribute up to 13 pts
+  static const double gpaMaxScore = 60.0; // GPA contributes up to 60 pts
+  static const double fieldMaxScore = 12.0; // Field alignment up to 12 pts
+  static const double researchScore = 15.0; // Binary: research exp = 15 pts
+  static const double publicationMaxScore =
+      13.0; // Pubs contribute up to 13 pts
 
   // Human-readable weight percentages (sum to 100)
-  static int get gpaWeightPercent =>
-      (gpaMaxScore / 100 * 100).round();         // 60%
+  static int get gpaWeightPercent => (gpaMaxScore / 100 * 100).round(); // 60%
   static int get researchWeightPercent =>
-      (researchScore / 100 * 100).round();       // 15%
+      (researchScore / 100 * 100).round(); // 15%
   static int get publicationWeightPercent =>
       (publicationMaxScore / 100 * 100).round(); // 13%
   static int get fieldWeightPercent =>
-      (fieldMaxScore / 100 * 100).round();       // 12%
+      (fieldMaxScore / 100 * 100).round(); // 12%
 
   // -------------------------------------------------------------------------
   // Fit score: 0–100
@@ -163,7 +163,7 @@ class ApplicationIntelligenceService {
   }
 
   static double _deadlineUrgencyScore(int daysUntilDeadline) {
-    if (daysUntilDeadline <= 0) return 95.0;  // Past deadline = maximum urgency
+    if (daysUntilDeadline <= 0) return 95.0; // Past deadline = maximum urgency
     if (daysUntilDeadline <= 3) return 90.0;
     if (daysUntilDeadline <= 7) return 75.0;
     if (daysUntilDeadline <= 14) return 55.0;
