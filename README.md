@@ -1,208 +1,209 @@
 # Smart Application Intelligence System
 
-Smart Application Intelligence System is a mobile-first Flutter app with a FastAPI backend designed to help students track applications, evaluate SOP quality, and prioritize opportunities using practical scoring logic.
+Smart Application Intelligence System is a Flutter mobile app with a FastAPI backend that helps students manage applications, evaluate SOP/CV quality, and discover opportunities with practical ranking logic.
 
-## Features
+## What This Project Includes
 
-- Bottom-tab mobile experience for Dashboard, Applications, Opportunities, and Profile.
-- SQLite-based Applications Tracker with add, list, and delete operations.
-- Automatic application intelligence on insert:
-  - Fit Score
-  - Risk Level
-  - Recommendation (Apply, Prepare More, Skip)
-- Profile-based scoring inputs persisted locally:
-  - GPA
-  - Field of study
-  - Research experience level
-  - Publications
-- Opportunities fetched from FastAPI and ranked using fit + deadline proximity.
-- Top-3 opportunities visually highlighted.
-- SOP Analyzer screen in Flutter with backend POST integration.
-- Dashboard chart showing application counts by status.
-- FastAPI endpoints for opportunities and SOP analysis.
-- Scholarship scraper module (BeautifulSoup) producing JSON data source.
+### Mobile App (Flutter)
+- Dashboard with application status chart.
+- Applications tracker backed by SQLite (add, list, delete, persistent storage).
+- Opportunities screen with ranked opportunities and cached fallback data.
+- Profile management for GPA, field, research level, and publications.
+- SOP Analyzer screen connected to backend AI endpoint.
+- CV Analyzer screen connected to backend AI endpoint.
 
-## Screenshots
-
-- Dashboard: `docs/screenshots/dashboard.png`
-- Applications: `docs/screenshots/applications.png`
-- Opportunities: `docs/screenshots/opportunities.png`
-- Profile + SOP Analyzer: `docs/screenshots/profile-sop.png`
-
-Replace these placeholder paths with real screenshots when publishing updates.
+### Backend (FastAPI)
+- `GET /opportunities` for static opportunities.
+- `GET /opportunities/live` for merged live + static opportunities.
+- `POST /analyze-sop` for SOP analysis.
+- `POST /analyze-cv` for CV-to-opportunity fit analysis.
+- Graceful fallback behavior when live scraping fails.
 
 ## Tech Stack
 
-### Mobile App
-- Flutter
-- Dart
-- sqflite
-- shared_preferences
-- http
-- fl_chart
+- Flutter, Dart
+- FastAPI, Pydantic
+- SQLite (`sqflite`, `sqflite_common_ffi`)
+- Requests, BeautifulSoup, lxml
+- Gemini API (optional for SOP/CV AI endpoints)
 
-### Backend
-- FastAPI
-- Pydantic
-- requests
-- BeautifulSoup4
+## Project Structure
 
-## Architecture
+```text
+backend/
+  main.py
+  requirements.txt
+  opportunities.json
+  models/
+  routes/
+  scraper/
+  services/
+lib/
+  database/
+  models/
+  screens/
+  services/
+  widgets/
+test/
+  widget_test.dart
+  intelligence_service_test.dart
+```
 
-### Flutter
-- `lib/screens`: UI pages and interaction flows
-- `lib/models`: typed data models
-- `lib/services`: API clients, local profile service, and intelligence logic
-- `lib/database`: SQLite helper and CRUD logic
-- `lib/widgets`: reusable visual components
+## Prerequisites
 
-### FastAPI
-- `backend/main.py`: API bootstrap
-- `backend/routes`: endpoint handlers
-- `backend/models`: request/response schemas
-- `backend/services`: Gemini SOP integration logic
-- `backend/scraper`: scraping and JSON export utilities
+Install these before running:
 
-## Setup Instructions
+1. Git
+2. Python 3.10+ (3.11 recommended)
+3. Flutter SDK (with Android tooling)
+4. Android Emulator or physical device
 
-## 1. Clone repository
+## Reviewer Quick Start (Windows, PowerShell)
 
-```bash
+Follow these steps exactly.
+
+### 1. Clone and open the project
+
+```powershell
 git clone https://github.com/aliakarma/Mobile-App-Repo.git
 cd Mobile-App-Repo
 ```
 
-## 2. Run FastAPI backend
-
-From the repository root, run:
+### 2. Create Python environment and install backend dependencies
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 pip install -r backend/requirements.txt
-cd backend
-python -m uvicorn main:app --reload --port 8080
 ```
 
-Backend runs at `http://127.0.0.1:8080`.
-
-Quick check:
-
-- Open `http://127.0.0.1:8080/` in your browser. You should see: `{"message":"Student Application System API is running"}`.
-
-If PowerShell blocks script execution, run this once in the same terminal and activate again:
+If PowerShell blocks script activation:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 ```
 
-Common errors and fixes:
+Then run activation again.
 
-- `ModuleNotFoundError: No module named 'routes'`
-  - Cause: server started from repo root with `backend.main:app`.
-  - Fix: run from `backend` folder using `python -m uvicorn main:app --reload --port 8080`.
-- `[WinError 10013]` or `[Errno 13]` while binding port
-  - Cause: selected port is already in use.
-  - Fix: use another port, for example:
+### 3. (Optional) Configure Gemini for SOP/CV AI analysis
+
+If you want `/analyze-sop` and `/analyze-cv` to return real AI results, set API key in the same terminal where backend will run:
 
 ```powershell
-python -m uvicorn main:app --reload --port 8001
+$env:GEMINI_API_KEY="your_key_here"
+$env:GEMINI_MODEL="gemini-1.5-flash"
 ```
 
-## 3. Configure backend access for Flutter
+If this is not set, SOP/CV endpoints will return a clear error message, while non-AI features still work.
 
-- Android emulator: use base URL `http://10.0.2.2:8080`
-- Physical device: replace with your machine LAN IP in Flutter services
-- If you started backend on a different port (for example `8001`), update the Flutter base URL to the same port.
+### 4. Start backend server
 
-## 4. Run Flutter app
+```powershell
+cd backend
+python -m uvicorn main:app --reload --host 127.0.0.1 --port 8000
+```
 
-```bash
+Backend should be available at:
+
+- `http://127.0.0.1:8000/`
+- `http://127.0.0.1:8000/docs`
+
+### 5. Run Flutter app (new terminal)
+
+Open a second terminal in project root:
+
+```powershell
+cd C:\Users\Ali Akarma\Documents\GitHub\Mobile-App-Repo
 flutter pub get
 flutter run
 ```
 
-## 5. Optional Gemini configuration for SOP endpoint
+## Base URL Behavior (Important)
 
-Set environment variables before running backend:
+The app is configured as follows:
 
-```bash
-set GEMINI_API_KEY=your_key_here
-set GEMINI_MODEL=gemini-1.5-flash
+- Android emulator: `http://10.0.2.2:8000`
+- Web/Desktop: `http://localhost:8000`
+
+So a single backend instance on port `8000` is enough for app features.
+
+## 3-Minute Reviewer Validation Checklist
+
+After app launches:
+
+1. Open Profile tab and save profile values.
+2. Open Applications tab and add an application.
+3. Verify it appears in list, then navigate away and back (persistence check).
+4. Delete one record and verify list refresh.
+5. Open Dashboard and verify chart updates from saved data.
+6. Open Opportunities and verify data loads.
+7. Open SOP Analyzer or CV Analyzer and run analysis:
+   - With Gemini key: expect structured analysis response.
+   - Without Gemini key: expect clear backend error about missing key.
+
+## API Endpoints
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/` | Health/status response |
+| GET | `/opportunities` | Static opportunities from JSON |
+| GET | `/opportunities/live` | Live scraped + static merged opportunities |
+| POST | `/analyze-sop` | SOP analysis (Gemini-backed) |
+| POST | `/analyze-cv` | CV fit analysis against target opportunity (Gemini-backed) |
+
+## Testing and Quality Checks
+
+From project root:
+
+```powershell
+flutter analyze
+flutter test
 ```
 
-## Core Workflows
+Quick backend import check:
 
-- Save profile details in Profile tab.
-- Add applications in Applications tab.
-- System auto-calculates fit, risk, and recommendation and stores values in SQLite.
-- Review ranked opportunities in Opportunities tab.
-- View status distribution chart in Dashboard.
-- Analyze SOP from Profile -> SOP Analyzer.
+```powershell
+cd backend
+python -c "import main; print('backend import ok')"
+```
 
-## How It Works
+## Troubleshooting
 
-- Fit Score: Combines profile quality (GPA, field alignment, research, publications) into a score from 0 to 100.
-- Risk Level: Uses deadline urgency and readiness to classify each application as Low, Medium, or High risk.
-- Recommendation:
-  - Apply: strong fit and readiness
-  - Prepare More: promising but incomplete preparation
-  - Skip: low fit or high urgency with low readiness
-- Opportunity Ranking: Blends fit score and deadline proximity, then highlights the top 3.
+### Error: ModuleNotFoundError: No module named 'routes'
+Cause: backend started from wrong directory.
 
-## Demo Steps
+Fix: run from `backend` folder using:
 
-- Start backend and Flutter app.
-- Open Profile tab and save academic profile details.
-- Add one or more applications from Applications tab.
-- Confirm fit score, risk level, recommendation, and reason are generated automatically.
-- Open Opportunities tab and verify ranked results with top-3 highlights.
-- Open Dashboard to view status distribution chart.
-- Run SOP analysis from Profile -> Open SOP Analyzer.
+```powershell
+cd backend
+python -m uvicorn main:app --reload --port 8000
+```
 
-## Progress #4 Proof (Link UI with SQLite)
+### Error: Address already in use / WinError 10013
+Cause: port `8000` is busy.
 
-This project already links Flutter UI screens with SQLite persistence.
+Fix option 1: free port 8000.
 
-Code evidence:
+Fix option 2: run backend on another port, then update base URL in:
+- `lib/services/opportunity_service.dart`
+- `lib/services/sop_service.dart`
+- `lib/services/cv_service.dart`
 
-- SQLite database helper with create table and CRUD methods:
-  - `lib/database/local_database.dart`
-  - `insertApplication(...)`
-  - `fetchApplications(...)`
-  - `deleteApplication(...)`
-- Applications UI reads and writes through SQLite:
-  - `lib/screens/applications_screen.dart`
-  - Loads data using `_databaseHelper.fetchApplications()`
-  - Saves new records using `_databaseHelper.insertApplication(...)`
-  - Deletes records using `_databaseHelper.deleteApplication(...)`
-- Dashboard UI reads SQLite data for status chart:
-  - `lib/screens/dashboard_screen.dart`
-  - Loads data using `_databaseHelper.fetchApplications()`
+### SOP/CV endpoint returns 502 with missing key message
+Cause: Gemini environment variable is not set.
 
-How to show proof during evaluation:
+Fix: set `GEMINI_API_KEY` in backend terminal before starting server.
 
-1. Open app and go to Applications.
-2. Add one new application (title, status, deadline).
-3. Show that the new item appears immediately in the list.
-4. Navigate away (for example Dashboard), then return to Applications.
-5. Show that the same item is still there (proves persistence, not temporary UI state).
-6. Delete the item and show list refreshes.
-7. Open Dashboard and show status chart updates after add/delete.
+## Progress #4 Evidence (UI linked with SQLite)
 
-Suggested evidence to submit:
+SQLite integration is implemented and used by UI:
 
-- One short screen recording (30 to 60 seconds) of the 7 steps above.
-- 3 screenshots:
-  - Before adding item
-  - After adding item
-  - After reopening tab/app showing item still exists
-- Optional code screenshot highlighting:
-  - `DatabaseHelper` methods in `lib/database/local_database.dart`
-  - Insert/fetch/delete calls in `lib/screens/applications_screen.dart`
+- Database helper and CRUD: `lib/database/local_database.dart`
+- Applications screen uses insert/fetch/delete via SQLite.
+- Dashboard reads stored applications for status chart.
 
-## Notes
+Recommended proof submission:
 
-- The project uses simple and explainable formulas to keep decisions transparent.
-- Backend opportunities can be sourced from JSON, generated by the scraper.
+1. Short recording (30-60 seconds): add item, navigate tabs, return, delete item.
+2. Screenshots: before add, after add, after returning to show persistence.
