@@ -3,10 +3,19 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from routes.analyze_cv import router as analyze_cv_router
 from routes.analyze_sop import router as analyze_sop_router
+from routes.live_opportunities import router as live_opportunities_router
 from routes.opportunities import router as opportunities_router
 
-app = FastAPI(title="Student Application System API", version="1.0.0")
+app = FastAPI(
+    title="Smart Application Intelligence System API",
+    version="2.0.0",
+    description=(
+        "AI-powered backend for student scholarship and internship tracking. "
+        "Provides live opportunity fetching, Gemini SOP analysis, and CV analysis."
+    ),
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -45,10 +54,18 @@ async def generic_exception_handler(_request: Request, exc: Exception) -> JSONRe
         content={"error": "internal_error", "detail": str(exc)},
     )
 
-app.include_router(opportunities_router)
-app.include_router(analyze_sop_router)
+
+# Routers
+app.include_router(opportunities_router)          # GET /opportunities  (static JSON)
+app.include_router(live_opportunities_router)     # GET /opportunities/live  (scraped)
+app.include_router(analyze_sop_router)            # POST /analyze-sop
+app.include_router(analyze_cv_router)             # POST /analyze-cv
 
 
 @app.get("/")
 def health_check() -> dict[str, str]:
-    return {"message": "Student Application System API is running"}
+    return {
+        "message": "Smart Application Intelligence System API is running",
+        "version": "2.0.0",
+        "endpoints": "/opportunities | /opportunities/live | /analyze-sop | /analyze-cv",
+    }
