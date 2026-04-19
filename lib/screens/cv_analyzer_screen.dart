@@ -123,7 +123,7 @@ class _CvAnalyzerScreenState extends State<CvAnalyzerScreen>
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Header card
-                _InfoBanner(
+                const _InfoBanner(
                   icon: Icons.document_scanner_outlined,
                   title: 'AI-Powered CV Analysis',
                   subtitle:
@@ -253,7 +253,7 @@ class _CvAnalyzerScreenState extends State<CvAnalyzerScreen>
                             analysis.overallFitScore /
                             100,
                         color: scoreColor,
-                        backgroundColor: scoreColor.withOpacity(0.12),
+                        backgroundColor: scoreColor.withValues(alpha: 0.12),
                       ),
                       child: Center(
                         child: Column(
@@ -286,9 +286,10 @@ class _CvAnalyzerScreenState extends State<CvAnalyzerScreen>
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 6),
                     decoration: BoxDecoration(
-                      color: scoreColor.withOpacity(0.1),
+                      color: scoreColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: scoreColor.withOpacity(0.3)),
+                      border:
+                          Border.all(color: scoreColor.withValues(alpha: 0.3)),
                     ),
                     child: Text(
                       scoreLabel,
@@ -363,7 +364,7 @@ class _CvAnalyzerScreenState extends State<CvAnalyzerScreen>
                           label: Text(kw,
                               style: const TextStyle(fontSize: 12)),
                           backgroundColor:
-                              const Color(0xFFE65100).withOpacity(0.08),
+                              const Color(0xFFE65100).withValues(alpha: 0.08),
                           side: const BorderSide(
                               color: Color(0xFFE65100), width: 0.8),
                           padding: EdgeInsets.zero,
@@ -411,7 +412,10 @@ class _InfoBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.s16),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.4),
+        color: Theme.of(context)
+            .colorScheme
+            .primaryContainer
+            .withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
