@@ -5,8 +5,10 @@ from fastapi.responses import JSONResponse
 
 from routes.analyze_cv import router as analyze_cv_router
 from routes.analyze_sop import router as analyze_sop_router
+from routes.auth import router as auth_router
 from routes.live_opportunities import router as live_opportunities_router
 from routes.opportunities import router as opportunities_router
+from services.auth_service import init_auth_db
 
 app = FastAPI(
     title="Smart Application Intelligence System API",
@@ -24,6 +26,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+def startup_event() -> None:
+    init_auth_db()
 
 
 @app.exception_handler(HTTPException)
@@ -60,6 +67,7 @@ app.include_router(opportunities_router)          # GET /opportunities  (static 
 app.include_router(live_opportunities_router)     # GET /opportunities/live  (scraped)
 app.include_router(analyze_sop_router)            # POST /analyze-sop
 app.include_router(analyze_cv_router)             # POST /analyze-cv
+app.include_router(auth_router)                   # /auth/*
 
 
 @app.get("/")
@@ -67,5 +75,8 @@ def health_check() -> dict[str, str]:
     return {
         "message": "Smart Application Intelligence System API is running",
         "version": "2.0.0",
-        "endpoints": "/opportunities | /opportunities/live | /analyze-sop | /analyze-cv",
+        "endpoints": (
+            "/opportunities | /opportunities/live | /analyze-sop | "
+            "/analyze-cv | /auth/signup | /auth/login | /auth/me | /auth/logout"
+        ),
     }
