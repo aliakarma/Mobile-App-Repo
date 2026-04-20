@@ -60,7 +60,8 @@ class AuthApiService {
 
     final payload = _decodeJsonMap(response.body);
     _ensureSuccess(response, payload);
-    return AuthSessionModel.fromJson(payload).copyWith(issuedAt: DateTime.now());
+    return AuthSessionModel.fromJson(payload)
+        .copyWith(issuedAt: DateTime.now());
   }
 
   Future<AuthSessionModel> login({
@@ -79,7 +80,8 @@ class AuthApiService {
 
     final payload = _decodeJsonMap(response.body);
     _ensureSuccess(response, payload);
-    return AuthSessionModel.fromJson(payload).copyWith(issuedAt: DateTime.now());
+    return AuthSessionModel.fromJson(payload)
+        .copyWith(issuedAt: DateTime.now());
   }
 
   Future<AuthUserModel> fetchCurrentUser(String accessToken) async {
@@ -153,7 +155,8 @@ class AuthApiService {
 
     final detail = payload['detail']?.toString();
     final error = payload['error']?.toString();
-    final message = detail ?? error ?? 'Request failed with ${response.statusCode}.';
+    final message =
+        detail ?? error ?? 'Request failed with ${response.statusCode}.';
     throw AuthApiException(
       message: message,
       statusCode: response.statusCode,
@@ -170,6 +173,7 @@ class AuthApiService {
       return decoded;
     }
 
-    throw const AuthApiException(message: 'Invalid response format from backend.');
+    throw const AuthApiException(
+        message: 'Invalid response format from backend.');
   }
 }

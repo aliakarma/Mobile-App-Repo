@@ -10,11 +10,10 @@ class AuthLocalStorage {
   static const String _sessionKey = 'auth_session';
 
   AuthLocalStorage({FlutterSecureStorage? secureStorage})
-      : _secureStorage =
-            secureStorage ??
-                const FlutterSecureStorage(
-                  aOptions: AndroidOptions(encryptedSharedPreferences: true),
-                );
+      : _secureStorage = secureStorage ??
+            const FlutterSecureStorage(
+              aOptions: AndroidOptions(encryptedSharedPreferences: true),
+            );
 
   final FlutterSecureStorage _secureStorage;
 

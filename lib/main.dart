@@ -42,7 +42,8 @@ class _SmartApplicationIntelligenceSystemAppState
           title: 'Smart Application Intelligence System',
           debugShowCheckedModeBanner: false,
           theme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0B7A75)),
+            colorScheme:
+                ColorScheme.fromSeed(seedColor: const Color(0xFF0B7A75)),
             useMaterial3: true,
             inputDecorationTheme: const InputDecorationTheme(
               filled: true,

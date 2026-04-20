@@ -37,15 +37,17 @@ class AuthSessionModel {
   factory AuthSessionModel.fromJson(Map<String, dynamic> json) {
     final issuedAtRaw = json['issued_at'] ?? json['issuedAt'];
     return AuthSessionModel(
-      accessToken: (json['access_token'] ?? json['accessToken'] as String? ?? '')
-          .trim(),
+      accessToken:
+          (json['access_token'] ?? json['accessToken'] as String? ?? '').trim(),
       tokenType:
           (json['token_type'] ?? json['tokenType'] as String? ?? 'bearer')
               .trim(),
-      expiresIn: (json['expires_in'] ?? json['expiresIn'] as num?)?.toInt() ??
-          0,
-      user: AuthUserModel.fromJson((json['user'] as Map?)?.cast<String, dynamic>() ?? const {}),
-      issuedAt: DateTime.tryParse(issuedAtRaw?.toString() ?? '') ?? DateTime.now(),
+      expiresIn:
+          (json['expires_in'] ?? json['expiresIn'] as num?)?.toInt() ?? 0,
+      user: AuthUserModel.fromJson(
+          (json['user'] as Map?)?.cast<String, dynamic>() ?? const {}),
+      issuedAt:
+          DateTime.tryParse(issuedAtRaw?.toString() ?? '') ?? DateTime.now(),
     );
   }
 

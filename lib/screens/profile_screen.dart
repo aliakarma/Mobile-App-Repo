@@ -7,7 +7,16 @@ import 'cv_analyzer_screen.dart';
 import 'sop_analyzer_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  const ProfileScreen({
+    super.key,
+    required this.onLogout,
+    required this.accountName,
+    required this.accountEmail,
+  });
+
+  final Future<void> Function() onLogout;
+  final String accountName;
+  final String accountEmail;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -23,6 +32,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _researchLevel = 'none';
   int _gpaScale = 4;
   bool _isLoading = true;
+  bool _isLoggingOut = false;
 
   @override
   void initState() {
@@ -69,10 +79,65 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Future<void> _handleLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Log out'),
+          content: const Text('Are you sure you want to log out?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Log out'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    setState(() {
+      _isLoggingOut = true;
+    });
+
+    try {
+      await widget.onLogout();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoggingOut = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
+      appBar: AppBar(
+        title: const Text('Profile'),
+        actions: [
+          TextButton.icon(
+            onPressed: _isLoggingOut ? null : _handleLogout,
+            icon: _isLoggingOut
+                ? const SizedBox(
+                    height: 16,
+                    width: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.logout),
+            label: const Text('Logout'),
+          ),
+        ],
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
@@ -82,6 +147,54 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    AppCard(
+                      margin: const EdgeInsets.only(
+                        bottom: AppSpacing.s12,
+                      ),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 24,
+                            backgroundColor:
+                                Theme.of(context).colorScheme.primaryContainer,
+                            child: Text(
+                              widget.accountName.isNotEmpty
+                                  ? widget.accountName[0].toUpperCase()
+                                  : 'U',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.s12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  widget.accountName,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.w700),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  widget.accountEmail,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(color: Colors.grey.shade700),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                     DropdownButtonFormField<int>(
                       initialValue: _gpaScale,
                       decoration: const InputDecoration(
@@ -108,7 +221,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       validator: (value) {
                         final parsed = double.tryParse(value?.trim() ?? '');
-                        if (parsed == null || parsed < 0 || parsed > _gpaScale) {
+                        if (parsed == null ||
+                            parsed < 0 ||
+                            parsed > _gpaScale) {
                           return 'Enter a GPA between 0 and $_gpaScale';
                         }
                         return null;

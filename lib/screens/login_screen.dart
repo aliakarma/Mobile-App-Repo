@@ -127,7 +127,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   textInputAction: TextInputAction.next,
                   validator: _validateEmail,
                   prefixIcon: const Icon(Icons.mail_outline),
-                  autofillHints: const [AutofillHints.username, AutofillHints.email],
+                  autofillHints: const [
+                    AutofillHints.username,
+                    AutofillHints.email
+                  ],
                 ),
                 const SizedBox(height: AppSpacing.s12),
                 AuthTextField(

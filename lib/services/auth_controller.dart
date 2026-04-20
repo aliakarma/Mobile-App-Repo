@@ -40,8 +40,8 @@ class AuthController extends ChangeNotifier {
 
     try {
       final currentUser = await _apiService
-        .fetchCurrentUser(storedSession.accessToken)
-        .timeout(const Duration(seconds: 2));
+          .fetchCurrentUser(storedSession.accessToken)
+          .timeout(const Duration(seconds: 2));
       _session = storedSession.copyWith(user: currentUser);
       _status = AuthStatus.authenticated;
     } catch (_) {
