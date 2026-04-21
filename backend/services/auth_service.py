@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
 import os
+import secrets
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -8,10 +11,8 @@ from pathlib import Path
 from typing import Any
 
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
 
-_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 _algorithm = "HS256"
 _access_token_expire_minutes = int(
     os.getenv("AUTH_ACCESS_TOKEN_EXPIRE_MINUTES", "1440")
@@ -20,10 +21,16 @@ _access_token_remember_expire_minutes = int(
     os.getenv("AUTH_ACCESS_TOKEN_REMEMBER_ME_EXPIRE_MINUTES", "43200")
 )
 _secret_key = os.getenv("AUTH_SECRET_KEY", "replace-this-with-a-strong-secret")
+_password_hash_iterations = int(os.getenv("AUTH_PASSWORD_HASH_ITERATIONS", "310000"))
+_password_scheme = "pbkdf2_sha256"
 
 _base_dir = Path(__file__).resolve().parents[1]
 _db_dir = _base_dir / "data"
 _db_path = _db_dir / "auth.db"
+
+
+class EmailAlreadyExistsError(ValueError):
+    pass
 
 
 @dataclass(frozen=True)
@@ -97,7 +104,7 @@ def create_user(full_name: str, email: str, password: str) -> AuthUserRecord:
             connection.commit()
             user_id = int(cursor.lastrowid)
     except sqlite3.IntegrityError as error:
-        raise ValueError("An account with this email already exists.") from error
+        raise EmailAlreadyExistsError("An account with this email already exists.") from error
 
     created = get_user_by_id(user_id)
     if created is None:
@@ -144,11 +151,40 @@ def decode_access_token(token: str) -> dict[str, Any]:
 
 
 def get_password_hash(password: str) -> str:
-    return _pwd_context.hash(password)
+    salt = secrets.token_bytes(16)
+    derived_key = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt,
+        _password_hash_iterations,
+    )
+    return (
+        f"{_password_scheme}"
+        f"${_password_hash_iterations}"
+        f"${salt.hex()}"
+        f"${derived_key.hex()}"
+    )
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return _pwd_context.verify(plain_password, hashed_password)
+    try:
+        scheme, iterations_raw, salt_hex, expected_hash_hex = hashed_password.split("$", 3)
+        if scheme != _password_scheme:
+            return False
+
+        iterations = int(iterations_raw)
+        salt = bytes.fromhex(salt_hex)
+        expected_hash = bytes.fromhex(expected_hash_hex)
+    except (ValueError, TypeError):
+        return False
+
+    actual_hash = hashlib.pbkdf2_hmac(
+        "sha256",
+        plain_password.encode("utf-8"),
+        salt,
+        iterations,
+    )
+    return hmac.compare_digest(actual_hash, expected_hash)
 
 
 def _normalize_email(email: str) -> str:
