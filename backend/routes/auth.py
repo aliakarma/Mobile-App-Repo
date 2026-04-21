@@ -10,6 +10,7 @@ from models.auth import (
 )
 from services.auth_service import (
     AuthUserRecord,
+    EmailAlreadyExistsError,
     authenticate_user,
     create_access_token,
     create_user,
@@ -81,7 +82,7 @@ def sign_up(payload: SignUpRequest) -> AuthTokenResponse:
             email=payload.email,
             password=payload.password,
         )
-    except ValueError as error:
+    except EmailAlreadyExistsError as error:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(error),
