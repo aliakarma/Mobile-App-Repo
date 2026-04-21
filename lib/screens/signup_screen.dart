@@ -80,7 +80,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   String _friendlySignUpError(AuthApiException error) {
     if (error.statusCode == 409) {
-      return 'An account with this email already exists.';
+      final detail = error.message.toLowerCase();
+      if (detail.contains('already exists')) {
+        return 'An account with this email already exists.';
+      }
     }
     return error.message;
   }
