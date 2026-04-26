@@ -19,12 +19,12 @@ Analyze the following Statement of Purpose (SOP) and return ONLY valid JSON.
 Do not include markdown, explanations, or extra text.
 
 Return schema exactly:
-{
+{{
   "score": number from 0 to 100,
   "strengths": ["short bullet point", "..."],
   "weaknesses": ["short bullet point", "..."],
   "suggestions": ["actionable suggestion", "..."]
-}
+}}
 
 Rules:
 - Keep each list concise (2 to 5 items).
