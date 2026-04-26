@@ -23,15 +23,24 @@ class CVAnalysisRequest(BaseModel):
         description="Target scholarship or internship title and description",
     )
 
-    @field_validator("cv_text", "target_opportunity")
+    @field_validator("cv_text")
     @classmethod
-    def strip_and_validate(cls, value: str | None) -> str | None:
+    def normalize_cv_text(cls, value: str | None) -> str | None:
         if value is None:
             return None
 
         stripped = value.strip()
         if not stripped:
-            raise ValueError("Field must not be empty after stripping whitespace.")
+            return None
+
+        return stripped
+
+    @field_validator("target_opportunity")
+    @classmethod
+    def validate_target_opportunity(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("target_opportunity must not be empty.")
         return stripped
 
     @model_validator(mode="after")
