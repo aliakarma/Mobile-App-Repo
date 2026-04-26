@@ -86,16 +86,34 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 Then run activation again.
 
-### 3. (Optional) Configure Gemini for SOP/CV AI analysis
+### 3. (Optional) Configure Gemini for SOP/CV AI analysis (safe)
 
-If you want `/analyze-sop` and `/analyze-cv` to return real AI results, set API key in the same terminal where backend will run:
+Use a local backend `.env` file so your key is never committed.
+
+1. Create `backend/.env` from the example:
+
+```powershell
+Copy-Item backend/.env.example backend/.env
+```
+
+2. Open `backend/.env` and set:
+
+```text
+GEMINI_API_KEY=your_real_key_here
+GEMINI_MODEL=gemini-1.5-flash
+```
+
+Notes:
+- `backend/.env` is ignored by git via `.gitignore`.
+- `backend/main.py` automatically loads `backend/.env` at startup.
+- If key is missing, `/analyze-sop` and `/analyze-cv` return a clear error while non-AI features still work.
+
+Alternative (ephemeral, current terminal only):
 
 ```powershell
 $env:GEMINI_API_KEY="your_key_here"
 $env:GEMINI_MODEL="gemini-1.5-flash"
 ```
-
-If this is not set, SOP/CV endpoints will return a clear error message, while non-AI features still work.
 
 ### 4. Start backend server
 
