@@ -70,10 +70,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : entries.isEmpty
-              ? const EmptyStateView(
+              ? EmptyState(
                   icon: Icons.pie_chart_outline,
                   title: 'No application data yet',
                   subtitle: 'Add applications to see status distribution.',
+                  primaryActionLabel: 'Refresh',
+                  onPrimaryAction: _loadStatusCounts,
                 )
               : Padding(
                   padding: const EdgeInsets.all(AppSpacing.s16),

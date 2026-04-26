@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/sop_analysis_model.dart';
+import '../services/api_exceptions.dart';
 import '../services/sop_service.dart';
 import '../widgets/app_ui.dart';
+import '../widgets/score_ring.dart';
 
 class SopAnalyzerScreen extends StatefulWidget {
   const SopAnalyzerScreen({super.key});
@@ -48,14 +51,17 @@ class _SopAnalyzerScreenState extends State<SopAnalyzerScreen> {
       setState(() {
         _errorMessage = 'Please wait a moment before submitting again.';
       });
+      HapticFeedback.heavyImpact();
       return;
     }
     _lastSubmitAttempt = now;
 
     if (!(_formKey.currentState?.validate() ?? false)) {
+      HapticFeedback.heavyImpact();
       return;
     }
 
+    HapticFeedback.lightImpact();
     final sopText = _sopController.text.trim();
 
     setState(() {
@@ -73,15 +79,24 @@ class _SopAnalyzerScreenState extends State<SopAnalyzerScreen> {
         _analysis = result;
         _isLoading = false;
       });
+      HapticFeedback.mediumImpact();
     } catch (error) {
       if (!mounted) {
         return;
       }
       setState(() {
-        _errorMessage = error.toString();
+        _errorMessage = _friendlyError(error);
         _isLoading = false;
       });
+      HapticFeedback.heavyImpact();
     }
+  }
+
+  String _friendlyError(Object error) {
+    if (error is ApiException) {
+      return error.userMessage;
+    }
+    return 'SOP analysis is currently unavailable. Please try again.';
   }
 
   @override
@@ -151,9 +166,12 @@ class _SopAnalyzerScreenState extends State<SopAnalyzerScreen> {
                 if (_analysis != null) ...[
                   _SectionCard(
                     title: 'Score',
-                    child: Text(
-                      _analysis!.score.toString(),
-                      style: Theme.of(context).textTheme.headlineMedium,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: ScoreRing(
+                        score: _analysis!.score,
+                        label: '/100',
+                      ),
                     ),
                   ),
                   _SectionCard(

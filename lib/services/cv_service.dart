@@ -1,30 +1,17 @@
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 
+import '../core/config/app_config.dart';
+import '../core/network/api_client.dart';
 import '../models/cv_analysis_model.dart';
+import 'api_exceptions.dart';
 
 class CvService {
-  CvService({String? baseUrl}) : baseUrl = baseUrl ?? defaultBaseUrl;
+  static const Duration _analysisTimeout = Duration(seconds: 90);
 
-  final String baseUrl;
+  CvService({ApiClient? apiClient})
+      : _apiClient = apiClient ?? ApiClient(baseUrl: AppConfig.apiBaseUrl);
 
-  static String get defaultBaseUrl {
-    if (kIsWeb) {
-      return 'http://localhost:8001';
-    }
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.android:
-        return 'http://10.0.2.2:8001';
-      case TargetPlatform.iOS:
-      case TargetPlatform.macOS:
-      case TargetPlatform.windows:
-      case TargetPlatform.linux:
-      case TargetPlatform.fuchsia:
-        return 'http://localhost:8001';
-    }
-  }
+  final ApiClient _apiClient;
 
   Future<CvAnalysisModel> analyzeCv({
     required String cvText,
@@ -32,41 +19,28 @@ class CvService {
     String? cvPdfBase64,
     String? cvPdfFilename,
   }) async {
-    final uri = Uri.parse('$baseUrl/analyze-cv');
     debugPrint('[CV] POST /analyze-cv');
 
-    final response = await http.post(
-      uri,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'cv_text': cvText,
-        'cv_pdf_base64': cvPdfBase64,
-        'cv_pdf_filename': cvPdfFilename,
-        'target_opportunity': targetOpportunity,
-      }),
-    );
+    try {
+      final payload = await _apiClient.postJson(
+        '/analyze-cv',
+        body: {
+          'cv_text': cvText,
+          'cv_pdf_base64': cvPdfBase64,
+          'cv_pdf_filename': cvPdfFilename,
+          'target_opportunity': targetOpportunity,
+        },
+        timeoutOverride: _analysisTimeout,
+      );
 
-    debugPrint('[CV] Response status: ${response.statusCode}');
-
-    final decodedBody = _decodeBody(response.body);
-
-    if (response.statusCode != 200) {
-      final errorDetail = decodedBody['detail']?.toString() ??
-          response.reasonPhrase ??
-          'Unknown backend error';
-      debugPrint('[CV] Failed: $errorDetail');
-      throw Exception('CV analysis failed: $errorDetail');
+      debugPrint('[CV] Success');
+      return CvAnalysisModel.fromJson(payload);
+    } on ApiException {
+      rethrow;
+    } catch (_) {
+      throw const BackendException(
+        userMessage: 'The server returned an invalid response format.',
+      );
     }
-
-    debugPrint('[CV] Success');
-    return CvAnalysisModel.fromJson(decodedBody);
-  }
-
-  Map<String, dynamic> _decodeBody(String body) {
-    final decoded = jsonDecode(body);
-    if (decoded is! Map<String, dynamic>) {
-      throw Exception('Invalid response format from backend.');
-    }
-    return decoded;
   }
 }

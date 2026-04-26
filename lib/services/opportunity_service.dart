@@ -1,10 +1,12 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/config/app_config.dart';
+import '../core/network/api_client.dart';
 import '../models/opportunity_model.dart';
+import 'api_exceptions.dart';
 
 class OpportunitiesFetchResult {
   const OpportunitiesFetchResult({
@@ -19,57 +21,32 @@ class OpportunitiesFetchResult {
 }
 
 class OpportunityService {
-  OpportunityService({String? baseUrl}) : baseUrl = baseUrl ?? defaultBaseUrl;
+  OpportunityService({ApiClient? apiClient})
+      : _apiClient = apiClient ?? ApiClient(baseUrl: AppConfig.apiBaseUrl);
 
-  final String baseUrl;
+  final ApiClient _apiClient;
   static const String _cacheKey = 'cached_opportunities';
   static const String _cacheUpdatedAtKey = 'cached_opportunities_updated_at';
-
-  static String get defaultBaseUrl {
-    if (kIsWeb) {
-      return 'http://localhost:8001';
-    }
-
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.android:
-        return 'http://10.0.2.2:8001';
-      case TargetPlatform.iOS:
-      case TargetPlatform.macOS:
-      case TargetPlatform.windows:
-      case TargetPlatform.linux:
-      case TargetPlatform.fuchsia:
-        return 'http://localhost:8001';
-    }
-  }
 
   Future<OpportunitiesFetchResult> fetchOpportunities({
     bool forceRefresh = false,
   }) async {
-    final uri = Uri.parse('$baseUrl/opportunities/live');
     try {
-      final response = await http.get(uri);
-      debugPrint(
-          '[OpportunityService] GET /opportunities/live -> ${response.statusCode}');
+      final decoded = await _apiClient.getJsonMap('/opportunities/live');
+      final rawOpportunities = decoded['opportunities'];
+      final updatedAtRaw = decoded['updated_at'];
 
-      if (response.statusCode != 200) {
-        throw Exception(
-          'Backend returned ${response.statusCode}: ${response.reasonPhrase ?? 'Unknown error'}',
-        );
-      }
-
-      final decoded = jsonDecode(response.body);
-      if (decoded is! List) {
-        throw Exception(
-            'Invalid response format. Expected a list of opportunities.');
-      }
-
-      final opportunities = decoded
+      final opportunities = (rawOpportunities is List ? rawOpportunities : const [])
           .whereType<Map<String, dynamic>>()
           .map(OpportunityModel.fromJson)
           .toList();
 
-      final updatedAt = DateTime.now();
-      await _saveCache(decoded, updatedAt);
+      final updatedAt = DateTime.tryParse(updatedAtRaw?.toString() ?? '') ??
+          DateTime.now();
+      await _saveCache(
+        rawOpportunities is List ? rawOpportunities : const [],
+        updatedAt,
+      );
       debugPrint(
           '[OpportunityService] Loaded opportunities from API: ${opportunities.length}');
 
@@ -78,6 +55,25 @@ class OpportunityService {
         fromCache: false,
         lastUpdated: updatedAt,
       );
+    } on ApiException {
+      if (forceRefresh) {
+        debugPrint('[OpportunityService] Force refresh failed; cache ignored');
+        rethrow;
+      }
+
+      final cached = await _loadCacheWithMetadata();
+      if (cached.isNotEmpty) {
+        debugPrint(
+          '[OpportunityService] API failed, using cache fallback: ${cached.length}',
+        );
+        return OpportunitiesFetchResult(
+          opportunities: cached,
+          fromCache: true,
+          lastUpdated: await _loadCacheUpdatedAt(),
+        );
+      }
+
+      rethrow;
     } catch (error) {
       if (forceRefresh) {
         debugPrint('[OpportunityService] Force refresh failed; cache ignored');

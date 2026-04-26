@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../services/auth_api_service.dart';
 import '../services/auth_controller.dart';
@@ -38,6 +39,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) {
+      HapticFeedback.heavyImpact();
       return;
     }
 
@@ -46,22 +48,26 @@ class _LoginScreenState extends State<LoginScreen> {
       _errorMessage = null;
     });
 
+    HapticFeedback.lightImpact();
     try {
       await widget.authController.login(
         email: _emailController.text.trim(),
         password: _passwordController.text,
         rememberMe: _rememberMe,
       );
+      HapticFeedback.mediumImpact();
     } on AuthApiException catch (error) {
       if (!mounted) return;
       setState(() {
         _errorMessage = _friendlyLoginError(error);
       });
+      HapticFeedback.heavyImpact();
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _errorMessage = 'Unable to log in. Please try again.';
       });
+      HapticFeedback.heavyImpact();
     } finally {
       if (mounted) {
         setState(() {

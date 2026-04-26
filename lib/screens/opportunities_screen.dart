@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/opportunity_model.dart';
 import '../models/user_profile_model.dart';
 import '../services/application_intelligence_service.dart';
+import '../services/api_exceptions.dart';
 import '../services/opportunity_service.dart';
 import '../services/user_profile_service.dart';
 import '../widgets/app_ui.dart';
@@ -59,7 +60,7 @@ class _OpportunitiesScreenState extends State<OpportunitiesScreen> {
       }
 
       setState(() {
-        _errorMessage = error.toString();
+        _errorMessage = _friendlyError(error);
         _isLoading = false;
       });
     }
@@ -94,10 +95,17 @@ class _OpportunitiesScreenState extends State<OpportunitiesScreen> {
       }
 
       setState(() {
-        _errorMessage = 'Manual refresh failed: $error';
+        _errorMessage = 'Manual refresh failed: ${_friendlyError(error)}';
         _isForceRefreshing = false;
       });
     }
+  }
+
+  String _friendlyError(Object error) {
+    if (error is ApiException) {
+      return error.userMessage;
+    }
+    return 'Unable to load opportunities right now. Please try again.';
   }
 
   @override
@@ -137,10 +145,12 @@ class _OpportunitiesScreenState extends State<OpportunitiesScreen> {
     }
 
     if (_rankedOpportunities.isEmpty) {
-      return const EmptyStateView(
+      return EmptyState(
         icon: Icons.travel_explore_outlined,
         title: 'No opportunities found',
-        subtitle: 'Try again later or check your backend connection.',
+        subtitle: 'Try again later or refresh to re-check the backend.',
+        primaryActionLabel: 'Refresh',
+        onPrimaryAction: _loadOpportunities,
       );
     }
 

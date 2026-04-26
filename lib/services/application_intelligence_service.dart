@@ -1,5 +1,15 @@
 enum RiskLevel { low, medium, high }
 
+class RecommendationResult {
+  const RecommendationResult({
+    required this.label,
+    required this.reason,
+  });
+
+  final String label;
+  final String reason;
+}
+
 class ApplicationIntelligenceService {
   const ApplicationIntelligenceService._();
 
@@ -78,7 +88,7 @@ class ApplicationIntelligenceService {
   // -------------------------------------------------------------------------
   // Recommendation
   // -------------------------------------------------------------------------
-  static String getRecommendation({
+  static RecommendationResult getRecommendationResult({
     required double fitScore,
     required double readinessScore,
     required int daysToDeadline,
@@ -92,35 +102,70 @@ class ApplicationIntelligenceService {
     final isVeryUrgent = urgencyScore >= 75;
     final isSoon = urgencyScore >= 55;
 
-    if (clampedFit < 45) return 'Skip';
-    if (confidenceScore >= 75 && clampedReadiness >= 60) return 'Apply';
-    if (isVeryUrgent && clampedReadiness < 45) return 'Skip';
-    if (isSoon && confidenceScore >= 65) return 'Apply';
-    if (confidenceScore < 45) return 'Skip';
-    return 'Prepare More';
+    if (clampedFit < 45) {
+      return const RecommendationResult(
+        label: 'Skip',
+        reason: 'Reason: Fit is currently too low for this application.',
+      );
+    }
+
+    if (confidenceScore >= 75 && clampedReadiness >= 60) {
+      return const RecommendationResult(
+        label: 'Apply',
+        reason: 'Reason: High fit and sufficient readiness.',
+      );
+    }
+
+    if (isVeryUrgent && clampedReadiness < 45) {
+      return const RecommendationResult(
+        label: 'Skip',
+        reason: 'Reason: Deadline is very close and readiness is low.',
+      );
+    }
+
+    if (isSoon && confidenceScore >= 65) {
+      return const RecommendationResult(
+        label: 'Apply',
+        reason: 'Reason: Strong confidence with a near-term deadline.',
+      );
+    }
+
+    if (confidenceScore < 45) {
+      return const RecommendationResult(
+        label: 'Skip',
+        reason: 'Reason: Readiness and confidence are not strong enough yet.',
+      );
+    }
+
+    return const RecommendationResult(
+      label: 'Prepare More',
+      reason:
+          'Reason: Moderate fit and timing — improve key sections before applying.',
+    );
   }
 
-  // -------------------------------------------------------------------------
-  // Recommendation reason
-  // -------------------------------------------------------------------------
+  static String getRecommendation({
+    required double fitScore,
+    required double readinessScore,
+    required int daysToDeadline,
+  }) {
+    return getRecommendationResult(
+      fitScore: fitScore,
+      readinessScore: readinessScore,
+      daysToDeadline: daysToDeadline,
+    ).label;
+  }
+
   static String getRecommendationReason({
     required double fitScore,
     required double readinessScore,
     required int daysToDeadline,
   }) {
-    if (fitScore >= 75 && readinessScore >= 60) {
-      return 'Reason: High fit and sufficient readiness.';
-    }
-    if (daysToDeadline <= 7 && readinessScore < 45) {
-      return 'Reason: Deadline is very close and readiness is low.';
-    }
-    if (fitScore < 45) {
-      return 'Reason: Fit is currently too low for this application.';
-    }
-    if (readinessScore < 60) {
-      return 'Reason: Profile is promising but preparation needs improvement.';
-    }
-    return 'Reason: Moderate fit and timing — improve key sections before applying.';
+    return getRecommendationResult(
+      fitScore: fitScore,
+      readinessScore: readinessScore,
+      daysToDeadline: daysToDeadline,
+    ).reason;
   }
 
   // -------------------------------------------------------------------------

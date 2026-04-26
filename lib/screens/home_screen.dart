@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../data/repositories/local_applications_repository.dart';
+import '../domain/repositories/applications_repository.dart';
 import '../widgets/app_bottom_navigation.dart';
 import 'applications_screen.dart';
+import 'ai_tools_screen.dart';
 import 'dashboard_screen.dart';
 import 'opportunities_screen.dart';
 import 'profile_screen.dart';
@@ -12,11 +15,13 @@ class HomeScreen extends StatefulWidget {
     required this.onLogout,
     required this.accountName,
     required this.accountEmail,
+    this.applicationsRepository,
   });
 
   final Future<void> Function() onLogout;
   final String accountName;
   final String accountEmail;
+  final ApplicationsRepository? applicationsRepository;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -30,10 +35,13 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    final applicationsRepository =
+        widget.applicationsRepository ?? LocalApplicationsRepository();
     _tabs = [
       const DashboardScreen(),
-      const ApplicationsScreen(),
+      ApplicationsScreen(repository: applicationsRepository),
       const OpportunitiesScreen(),
+      const AiToolsScreen(),
       ProfileScreen(
         onLogout: widget.onLogout,
         accountName: widget.accountName,

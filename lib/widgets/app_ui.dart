@@ -69,31 +69,42 @@ class LabelChip extends StatelessWidget {
   }
 }
 
-class EmptyStateView extends StatelessWidget {
-  const EmptyStateView({
+class EmptyState extends StatelessWidget {
+  const EmptyState({
     super.key,
-    required this.icon,
     required this.title,
-    this.subtitle,
-    this.actionLabel,
-    this.onAction,
+    required this.subtitle,
+    required this.primaryActionLabel,
+    required this.onPrimaryAction,
+    this.secondaryActionLabel,
+    this.onSecondaryAction,
+    this.icon,
   });
 
-  final IconData icon;
   final String title;
-  final String? subtitle;
-  final String? actionLabel;
-  final VoidCallback? onAction;
+  final String subtitle;
+  final String primaryActionLabel;
+  final VoidCallback onPrimaryAction;
+  final String? secondaryActionLabel;
+  final VoidCallback? onSecondaryAction;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
+    final hasSecondary =
+        secondaryActionLabel != null && onSecondaryAction != null;
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.s24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 56, color: Colors.grey.shade500),
+            Icon(
+              icon ?? Icons.inbox_outlined,
+              size: 56,
+              color: Colors.grey.shade500,
+            ),
             const SizedBox(height: AppSpacing.s12),
             Text(
               title,
@@ -102,23 +113,31 @@ class EmptyStateView extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
             ),
-            if (subtitle != null) ...[
-              const SizedBox(height: AppSpacing.s8),
-              Text(
-                subtitle!,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.grey.shade700,
-                    ),
-              ),
-            ],
-            if (actionLabel != null && onAction != null) ...[
-              const SizedBox(height: AppSpacing.s16),
-              ElevatedButton(
-                onPressed: onAction,
-                child: Text(actionLabel!),
-              ),
-            ],
+            const SizedBox(height: AppSpacing.s8),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.grey.shade700,
+                  ),
+            ),
+            const SizedBox(height: AppSpacing.s16),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: AppSpacing.s12,
+              runSpacing: AppSpacing.s8,
+              children: [
+                ElevatedButton(
+                  onPressed: onPrimaryAction,
+                  child: Text(primaryActionLabel),
+                ),
+                if (hasSecondary)
+                  OutlinedButton(
+                    onPressed: onSecondaryAction,
+                    child: Text(secondaryActionLabel!),
+                  ),
+              ],
+            ),
           ],
         ),
       ),

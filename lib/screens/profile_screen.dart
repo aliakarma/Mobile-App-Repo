@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/user_profile_model.dart';
 import '../services/user_profile_service.dart';
 import '../widgets/app_ui.dart';
-import 'cv_analyzer_screen.dart';
-import 'sop_analyzer_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({
@@ -62,7 +61,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _saveProfile() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      HapticFeedback.heavyImpact();
+      return;
+    }
+
+    HapticFeedback.lightImpact();
 
     final profile = UserProfileModel(
       gpa: double.parse(_gpaController.text.trim()),
@@ -74,6 +78,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     await _profileService.saveProfile(profile);
     if (!mounted) return;
+    HapticFeedback.mediumImpact();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Profile saved successfully.')),
     );
@@ -281,40 +286,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ElevatedButton(
                       onPressed: _saveProfile,
                       child: const Text('Save Profile'),
-                    ),
-                    const SizedBox(height: AppSpacing.s12),
-
-                    // ---- AI Tools ----
-                    Text(
-                      'AI Tools',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            color: Colors.grey.shade600,
-                            fontWeight: FontWeight.w600,
-                          ),
-                    ),
-                    const SizedBox(height: AppSpacing.s8),
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const SopAnalyzerScreen(),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.text_snippet_outlined),
-                      label: const Text('Open SOP Analyzer'),
-                    ),
-                    const SizedBox(height: AppSpacing.s8),
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const CvAnalyzerScreen(),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.document_scanner_outlined),
-                      label: const Text('Open CV Analyzer'),
                     ),
                   ],
                 ),
