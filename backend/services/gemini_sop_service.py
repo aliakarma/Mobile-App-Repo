@@ -9,9 +9,12 @@ import requests
 
 from models.sop import SOPAnalysisResponse
 
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 GEMINI_API_URL_TEMPLATE = (
     "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+)
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_MODEL_FALLBACKS = os.getenv(
+    "GEMINI_MODEL_FALLBACKS", "gemini-2.5-flash-lite,gemini-1.5-flash"
 )
 
 PROMPT_TEMPLATE = """You are an admissions evaluation assistant.
@@ -50,8 +53,6 @@ def analyze_sop_with_gemini(sop_text: str) -> SOPAnalysisResponse:
         raise GeminiServiceError("Missing GEMINI_API_KEY environment variable.")
 
     prompt = build_prompt(sop_text)
-    url = GEMINI_API_URL_TEMPLATE.format(model=GEMINI_MODEL)
-
     payload = {
         "contents": [
             {
@@ -68,11 +69,9 @@ def analyze_sop_with_gemini(sop_text: str) -> SOPAnalysisResponse:
         },
     }
 
-    response = _request_with_retry(
-        url=url,
+    response = _request_with_model_fallback(
         api_key=api_key,
         payload=payload,
-        max_attempts=3,
         timeout_seconds=15,
     )
 
@@ -167,6 +166,55 @@ def _safe_error_detail(response: requests.Response) -> str:
                 return message.strip()
 
     return "Unknown error"
+
+
+def _request_with_model_fallback(
+    *,
+    api_key: str,
+    payload: dict[str, Any],
+    timeout_seconds: int,
+) -> requests.Response:
+    last_response: requests.Response | None = None
+
+    for model in _candidate_models():
+        response = _request_with_retry(
+            url=GEMINI_API_URL_TEMPLATE.format(model=model),
+            api_key=api_key,
+            payload=payload,
+            max_attempts=3,
+            timeout_seconds=timeout_seconds,
+        )
+
+        if response.status_code == 200:
+            return response
+
+        if not _is_model_not_supported(response):
+            return response
+
+        last_response = response
+
+    if last_response is not None:
+        return last_response
+
+    raise GeminiServiceError("No Gemini model candidates were configured.")
+
+
+def _candidate_models() -> list[str]:
+    models: list[str] = []
+    for value in [GEMINI_MODEL, GEMINI_MODEL_FALLBACKS]:
+        for model in value.split(","):
+            cleaned = model.strip()
+            if cleaned and cleaned not in models:
+                models.append(cleaned)
+    return models
+
+
+def _is_model_not_supported(response: requests.Response) -> bool:
+    if response.status_code not in {400, 404}:
+        return False
+
+    detail = _safe_error_detail(response).lower()
+    return "not found" in detail or "not supported" in detail
 
 
 def _request_with_retry(
