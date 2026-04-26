@@ -34,6 +34,9 @@ migrate_working_dir/
 /coverage/
 .venv/
 backend/data/*.db
+backend/.env
+backend/.env.*
+!backend/.env.example
 
 # Symbolication related
 app.*.symbols
