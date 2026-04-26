@@ -60,6 +60,30 @@ Rules:
 - Be honest and constructively critical. Do not flatter the applicant.
 """
 
+CV_PDF_PROMPT_TEMPLATE = """You are an expert scholarship and internship application reviewer with 15 years of experience evaluating CVs for competitive academic programmes at universities like MIT, Stanford, NUS, KAUST, and MBZUAI.
+
+You will receive a CV as an attached PDF document. Read the PDF content (including scanned pages) and analyse it against the target opportunity below.
+
+TARGET OPPORTUNITY:
+{target_opportunity}
+
+Return this JSON schema exactly:
+{{
+    "overall_fit_score": <integer 0-100>,
+    "strengths": ["<what the CV does well for THIS specific opportunity>", ...],
+    "gaps": ["<specific weakness relative to THIS opportunity>", ...],
+    "tailoring_suggestions": ["<concrete, actionable edit the applicant should make>", ...],
+    "missing_keywords": ["<important term from the opportunity description absent from the CV>", ...],
+    "recommended_sections": ["<section the CV should add or expand, e.g. 'Research Publications', 'Technical Skills'>", ...]
+}}
+
+Rules:
+- Return ONLY valid JSON. No markdown, no explanation, no preamble.
+- overall_fit_score must reflect genuine fit: 0-40 poor, 41-65 moderate, 66-80 strong, 81-100 exceptional.
+- Each list should contain 3-6 concise, specific items.
+- Be honest and constructively critical.
+"""
+
 
 class GeminiCVServiceError(Exception):
     """Raised when Gemini CV analysis fails."""
@@ -75,19 +99,15 @@ def analyze_cv_with_gemini(
     if not api_key:
         raise GeminiCVServiceError("Missing GEMINI_API_KEY environment variable.")
 
-    resolved_cv_text = _resolve_cv_text(
+    cv_input = _resolve_cv_input(
         cv_text=cv_text,
         cv_pdf_base64=cv_pdf_base64,
         cv_pdf_filename=cv_pdf_filename,
-    )
-
-    prompt = CV_PROMPT_TEMPLATE.format(
-        cv_text=resolved_cv_text,
-        target_opportunity=target_opportunity.strip(),
+        target_opportunity=target_opportunity,
     )
 
     payload = {
-        "contents": [{"parts": [{"text": prompt}]}],
+        "contents": [{"parts": cv_input}],
         "generationConfig": {
             "temperature": 0.15,
             "responseMimeType": "application/json",
@@ -129,20 +149,48 @@ def analyze_cv_with_gemini(
         ) from exc
 
 
-def _resolve_cv_text(
+def _resolve_cv_input(
     *,
     cv_text: str | None,
     cv_pdf_base64: str | None,
     cv_pdf_filename: str | None,
-) -> str:
+    target_opportunity: str,
+) -> list[dict[str, Any]]:
     if cv_pdf_base64 and cv_pdf_base64.strip():
-        return _extract_pdf_text_from_base64(
-            cv_pdf_base64.strip(),
+        cleaned_pdf = cv_pdf_base64.strip()
+        extracted_text = _extract_pdf_text_from_base64(
+            cleaned_pdf,
             cv_pdf_filename=cv_pdf_filename,
         )
 
+        if len(extracted_text) >= 100:
+            prompt = CV_PROMPT_TEMPLATE.format(
+                cv_text=extracted_text,
+                target_opportunity=target_opportunity.strip(),
+            )
+            return [{"text": prompt}]
+
+        # OCR/document-understanding fallback for scanned PDFs.
+        return [
+            {
+                "text": CV_PDF_PROMPT_TEMPLATE.format(
+                    target_opportunity=target_opportunity.strip()
+                )
+            },
+            {
+                "inline_data": {
+                    "mime_type": "application/pdf",
+                    "data": cleaned_pdf,
+                }
+            },
+        ]
+
     if cv_text and cv_text.strip():
-        return cv_text.strip()
+        prompt = CV_PROMPT_TEMPLATE.format(
+            cv_text=cv_text.strip(),
+            target_opportunity=target_opportunity.strip(),
+        )
+        return [{"text": prompt}]
 
     raise GeminiCVServiceError("Provide cv_text or cv_pdf_base64 for CV analysis.")
 
@@ -159,19 +207,11 @@ def _extract_pdf_text_from_base64(pdf_b64: str, cv_pdf_filename: str | None) -> 
     try:
         reader = PdfReader(io.BytesIO(pdf_bytes))
         extracted_pages = [page.extract_text() or "" for page in reader.pages]
-    except Exception as exc:  # noqa: BLE001
-        filename_label = cv_pdf_filename or "Uploaded PDF"
-        raise GeminiCVServiceError(
-            f"Failed to read {filename_label}. Ensure it is a valid text-based PDF."
-        ) from exc
+    except Exception:  # noqa: BLE001
+        # Let Gemini handle OCR/document understanding via inline PDF fallback.
+        return ""
 
-    extracted_text = "\n".join(extracted_pages).strip()
-    if len(extracted_text) < 100:
-        raise GeminiCVServiceError(
-            "Could not extract enough text from PDF. Try a text-based PDF or paste CV text."
-        )
-
-    return extracted_text
+    return "\n".join(extracted_pages).strip()
 
 
 # ---------------------------------------------------------------------------
