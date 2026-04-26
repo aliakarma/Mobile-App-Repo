@@ -53,7 +53,7 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
     final formKey = GlobalKey<FormState>();
     final titleController = TextEditingController();
     DateTime? selectedDeadline;
-    String selectedStatus = 'Applied';
+    String selectedStatus = 'To Apply';
 
     await showDialog<void>(
       context: context,
@@ -88,6 +88,8 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
                         border: OutlineInputBorder(),
                       ),
                       items: const [
+                        DropdownMenuItem(
+                            value: 'To Apply', child: Text('To Apply')),
                         DropdownMenuItem(
                             value: 'Applied', child: Text('Applied')),
                         DropdownMenuItem(
@@ -188,6 +190,8 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
 
   double _progressFromStatus(String status) {
     switch (status) {
+      case 'To Apply':
+        return 0.0;
       case 'Applied':
         return 0.2;
       case 'In Review':
@@ -247,6 +251,12 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
 
   double _readinessFromStatus(String status) {
     switch (status) {
+      case 'To Apply':
+        return ApplicationIntelligenceService.calculateReadinessScore(
+          documentsComplete: false,
+          sopReady: false,
+          checklistProgress: 10,
+        );
       case 'Applied':
         return ApplicationIntelligenceService.calculateReadinessScore(
           documentsComplete: false,
