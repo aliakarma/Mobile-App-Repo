@@ -203,7 +203,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       items: const [
                         DropdownMenuItem(value: 4, child: Text('0 – 4')),
-                        DropdownMenuItem(value: 10, child: Text('0 – 10')),
+                        DropdownMenuItem(value: 5, child: Text('0 – 5')),
                       ],
                       onChanged: (value) {
                         if (value == null) return;
