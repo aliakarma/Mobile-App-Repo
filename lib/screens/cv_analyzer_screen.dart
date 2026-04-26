@@ -20,6 +20,7 @@ class _CvAnalyzerScreenState extends State<CvAnalyzerScreen>
     with SingleTickerProviderStateMixin {
   static const int _minCvWordCount = 100;
   static const int _minOpportunityLength = 20;
+  static const int _maxPdfBytes = 8 * 1024 * 1024;
 
   final TextEditingController _cvController = TextEditingController();
   final TextEditingController _opportunityController = TextEditingController();
@@ -28,6 +29,7 @@ class _CvAnalyzerScreenState extends State<CvAnalyzerScreen>
 
   CvAnalysisModel? _analysis;
   bool _isLoading = false;
+  bool _isPickingPdf = false;
   String? _errorMessage;
   Uint8List? _selectedCvPdfBytes;
   String? _selectedCvPdfName;
@@ -65,31 +67,64 @@ class _CvAnalyzerScreenState extends State<CvAnalyzerScreen>
   }
 
   Future<void> _pickCvPdf() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: const ['pdf'],
-      withData: true,
-    );
-
-    if (!mounted || result == null || result.files.isEmpty) {
-      return;
-    }
-
-    final file = result.files.single;
-    final bytes = file.bytes;
-    if (bytes == null || bytes.isEmpty) {
-      setState(() {
-        _errorMessage =
-            'Unable to read PDF bytes. Please choose another file or paste CV text.';
-      });
-      return;
-    }
-
     setState(() {
-      _selectedCvPdfBytes = bytes;
-      _selectedCvPdfName = file.name;
+      _isPickingPdf = true;
       _errorMessage = null;
     });
+
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['pdf'],
+        withData: false,
+      );
+
+      if (!mounted || result == null || result.files.isEmpty) {
+        return;
+      }
+
+      final file = result.files.single;
+      final xFile = result.xFiles.isNotEmpty ? result.xFiles.single : null;
+      final bytes =
+          file.bytes ?? (xFile == null ? null : await xFile.readAsBytes());
+
+      if (bytes == null || bytes.isEmpty) {
+        setState(() {
+          _errorMessage =
+              'Unable to read PDF bytes. Please choose another file or paste CV text.';
+        });
+        return;
+      }
+
+      if (bytes.length > _maxPdfBytes) {
+        setState(() {
+          _errorMessage =
+              'PDF is too large (${(bytes.length / (1024 * 1024)).toStringAsFixed(1)} MB). Please use a file under 8 MB.';
+        });
+        return;
+      }
+
+      setState(() {
+        _selectedCvPdfBytes = bytes;
+        _selectedCvPdfName = file.name;
+        _errorMessage = null;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _errorMessage =
+            'Could not open file picker. Please try again or paste CV text.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isPickingPdf = false;
+        });
+      }
+    }
   }
 
   void _removeCvPdf() {
@@ -201,8 +236,14 @@ class _CvAnalyzerScreenState extends State<CvAnalyzerScreen>
                 const SizedBox(height: AppSpacing.s12),
 
                 OutlinedButton.icon(
-                  onPressed: _isLoading ? null : _pickCvPdf,
-                  icon: const Icon(Icons.picture_as_pdf_outlined),
+                  onPressed: _isLoading || _isPickingPdf ? null : _pickCvPdf,
+                  icon: _isPickingPdf
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.picture_as_pdf_outlined),
                   label: Text(
                     _selectedCvPdfName == null
                         ? 'Upload CV PDF (Optional)'
