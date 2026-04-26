@@ -1,6 +1,9 @@
+import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 
 import '../models/cv_analysis_model.dart';
 import '../services/cv_service.dart';
@@ -26,6 +29,8 @@ class _CvAnalyzerScreenState extends State<CvAnalyzerScreen>
   CvAnalysisModel? _analysis;
   bool _isLoading = false;
   String? _errorMessage;
+  Uint8List? _selectedCvPdfBytes;
+  String? _selectedCvPdfName;
 
   late AnimationController _scoreAnimationController;
   late Animation<double> _scoreAnimation;
@@ -59,6 +64,41 @@ class _CvAnalyzerScreenState extends State<CvAnalyzerScreen>
     return trimmed.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
   }
 
+  Future<void> _pickCvPdf() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['pdf'],
+      withData: true,
+    );
+
+    if (!mounted || result == null || result.files.isEmpty) {
+      return;
+    }
+
+    final file = result.files.single;
+    final bytes = file.bytes;
+    if (bytes == null || bytes.isEmpty) {
+      setState(() {
+        _errorMessage =
+            'Unable to read PDF bytes. Please choose another file or paste CV text.';
+      });
+      return;
+    }
+
+    setState(() {
+      _selectedCvPdfBytes = bytes;
+      _selectedCvPdfName = file.name;
+      _errorMessage = null;
+    });
+  }
+
+  void _removeCvPdf() {
+    setState(() {
+      _selectedCvPdfBytes = null;
+      _selectedCvPdfName = null;
+    });
+  }
+
   Future<void> _submitAnalysis() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
@@ -73,6 +113,10 @@ class _CvAnalyzerScreenState extends State<CvAnalyzerScreen>
       final result = await _cvService.analyzeCv(
         cvText: _cvController.text.trim(),
         targetOpportunity: _opportunityController.text.trim(),
+        cvPdfBase64: _selectedCvPdfBytes == null
+            ? null
+            : base64Encode(_selectedCvPdfBytes!),
+        cvPdfFilename: _selectedCvPdfName,
       );
       if (!mounted) return;
       setState(() {
@@ -156,6 +200,28 @@ class _CvAnalyzerScreenState extends State<CvAnalyzerScreen>
                 ),
                 const SizedBox(height: AppSpacing.s12),
 
+                OutlinedButton.icon(
+                  onPressed: _isLoading ? null : _pickCvPdf,
+                  icon: const Icon(Icons.picture_as_pdf_outlined),
+                  label: Text(
+                    _selectedCvPdfName == null
+                        ? 'Upload CV PDF (Optional)'
+                        : 'PDF Selected: $_selectedCvPdfName',
+                  ),
+                ),
+                if (_selectedCvPdfName != null) ...[
+                  const SizedBox(height: AppSpacing.s8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: _isLoading ? null : _removeCvPdf,
+                      icon: const Icon(Icons.close),
+                      label: const Text('Remove selected PDF'),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: AppSpacing.s12),
+
                 // CV input
                 TextFormField(
                   controller: _cvController,
@@ -172,6 +238,10 @@ class _CvAnalyzerScreenState extends State<CvAnalyzerScreen>
                     ),
                   ),
                   validator: (value) {
+                    if (_selectedCvPdfBytes != null) {
+                      return null;
+                    }
+
                     if (_wordCount(value?.trim() ?? '') < _minCvWordCount) {
                       return 'Minimum $_minCvWordCount words required.';
                     }
@@ -180,9 +250,12 @@ class _CvAnalyzerScreenState extends State<CvAnalyzerScreen>
                 ),
                 const SizedBox(height: AppSpacing.s8),
                 Text(
-                  'Word count: $wordCount / $_minCvWordCount minimum',
+                  _selectedCvPdfBytes != null
+                      ? 'PDF upload selected. Pasted text is optional.'
+                      : 'Word count: $wordCount / $_minCvWordCount minimum',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: wordCount >= _minCvWordCount
+                        color: _selectedCvPdfBytes != null ||
+                                wordCount >= _minCvWordCount
                             ? Colors.green.shade700
                             : Colors.grey.shade600,
                       ),
