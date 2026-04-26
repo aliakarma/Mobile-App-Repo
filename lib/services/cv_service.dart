@@ -29,6 +29,8 @@ class CvService {
   Future<CvAnalysisModel> analyzeCv({
     required String cvText,
     required String targetOpportunity,
+    String? cvPdfBase64,
+    String? cvPdfFilename,
   }) async {
     final uri = Uri.parse('$baseUrl/analyze-cv');
     debugPrint('[CV] POST /analyze-cv');
@@ -38,6 +40,8 @@ class CvService {
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'cv_text': cvText,
+        'cv_pdf_base64': cvPdfBase64,
+        'cv_pdf_filename': cvPdfFilename,
         'target_opportunity': targetOpportunity,
       }),
     );
