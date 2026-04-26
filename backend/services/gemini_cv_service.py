@@ -11,18 +11,25 @@ Shares retry/extraction utilities from gemini_sop_service.py architecture.
 
 from __future__ import annotations
 
+import base64
+import binascii
+import io
 import json
 import os
 import time
 from typing import Any
 
 import requests
+from pypdf import PdfReader
 
 from models.cv import CVAnalysisResponse
 
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 GEMINI_API_URL_TEMPLATE = (
     "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+)
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_MODEL_FALLBACKS = os.getenv(
+    "GEMINI_MODEL_FALLBACKS", "gemini-2.5-flash-lite,gemini-1.5-flash"
 )
 
 CV_PROMPT_TEMPLATE = """You are an expert scholarship and internship application reviewer with 15 years of experience evaluating CVs for competitive academic programmes at universities like MIT, Stanford, NUS, KAUST, and MBZUAI.
@@ -59,17 +66,25 @@ class GeminiCVServiceError(Exception):
 
 
 def analyze_cv_with_gemini(
-    cv_text: str, target_opportunity: str
+    cv_text: str | None,
+    target_opportunity: str,
+    cv_pdf_base64: str | None = None,
+    cv_pdf_filename: str | None = None,
 ) -> CVAnalysisResponse:
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise GeminiCVServiceError("Missing GEMINI_API_KEY environment variable.")
 
+    resolved_cv_text = _resolve_cv_text(
+        cv_text=cv_text,
+        cv_pdf_base64=cv_pdf_base64,
+        cv_pdf_filename=cv_pdf_filename,
+    )
+
     prompt = CV_PROMPT_TEMPLATE.format(
-        cv_text=cv_text.strip(),
+        cv_text=resolved_cv_text,
         target_opportunity=target_opportunity.strip(),
     )
-    url = GEMINI_API_URL_TEMPLATE.format(model=GEMINI_MODEL)
 
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
@@ -79,11 +94,9 @@ def analyze_cv_with_gemini(
         },
     }
 
-    response = _request_with_retry(
-        url=url,
+    response = _request_with_model_fallback(
         api_key=api_key,
         payload=payload,
-        max_attempts=3,
         timeout_seconds=20,
     )
 
@@ -114,6 +127,51 @@ def analyze_cv_with_gemini(
         raise GeminiCVServiceError(
             "Gemini output does not match the CVAnalysisResponse schema."
         ) from exc
+
+
+def _resolve_cv_text(
+    *,
+    cv_text: str | None,
+    cv_pdf_base64: str | None,
+    cv_pdf_filename: str | None,
+) -> str:
+    if cv_pdf_base64 and cv_pdf_base64.strip():
+        return _extract_pdf_text_from_base64(
+            cv_pdf_base64.strip(),
+            cv_pdf_filename=cv_pdf_filename,
+        )
+
+    if cv_text and cv_text.strip():
+        return cv_text.strip()
+
+    raise GeminiCVServiceError("Provide cv_text or cv_pdf_base64 for CV analysis.")
+
+
+def _extract_pdf_text_from_base64(pdf_b64: str, cv_pdf_filename: str | None) -> str:
+    try:
+        pdf_bytes = base64.b64decode(pdf_b64, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise GeminiCVServiceError("Invalid base64 payload for CV PDF.") from exc
+
+    if not pdf_bytes:
+        raise GeminiCVServiceError("Uploaded CV PDF is empty.")
+
+    try:
+        reader = PdfReader(io.BytesIO(pdf_bytes))
+        extracted_pages = [page.extract_text() or "" for page in reader.pages]
+    except Exception as exc:  # noqa: BLE001
+        filename_label = cv_pdf_filename or "Uploaded PDF"
+        raise GeminiCVServiceError(
+            f"Failed to read {filename_label}. Ensure it is a valid text-based PDF."
+        ) from exc
+
+    extracted_text = "\n".join(extracted_pages).strip()
+    if len(extracted_text) < 100:
+        raise GeminiCVServiceError(
+            "Could not extract enough text from PDF. Try a text-based PDF or paste CV text."
+        )
+
+    return extracted_text
 
 
 # ---------------------------------------------------------------------------
@@ -171,6 +229,55 @@ def _safe_error_detail(response: requests.Response) -> str:
             if isinstance(message, str) and message.strip():
                 return message.strip()
     return "Unknown error"
+
+
+def _request_with_model_fallback(
+    *,
+    api_key: str,
+    payload: dict[str, Any],
+    timeout_seconds: int,
+) -> requests.Response:
+    last_response: requests.Response | None = None
+
+    for model in _candidate_models():
+        response = _request_with_retry(
+            url=GEMINI_API_URL_TEMPLATE.format(model=model),
+            api_key=api_key,
+            payload=payload,
+            max_attempts=3,
+            timeout_seconds=timeout_seconds,
+        )
+
+        if response.status_code == 200:
+            return response
+
+        if not _is_model_not_supported(response):
+            return response
+
+        last_response = response
+
+    if last_response is not None:
+        return last_response
+
+    raise GeminiCVServiceError("No Gemini model candidates were configured.")
+
+
+def _candidate_models() -> list[str]:
+    models: list[str] = []
+    for value in [GEMINI_MODEL, GEMINI_MODEL_FALLBACKS]:
+        for model in value.split(","):
+            cleaned = model.strip()
+            if cleaned and cleaned not in models:
+                models.append(cleaned)
+    return models
+
+
+def _is_model_not_supported(response: requests.Response) -> bool:
+    if response.status_code not in {400, 404}:
+        return False
+
+    detail = _safe_error_detail(response).lower()
+    return "not found" in detail or "not supported" in detail
 
 
 def _request_with_retry(
