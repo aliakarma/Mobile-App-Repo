@@ -6,15 +6,15 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(BASE_DIR / ".env")
+
 from routes.analyze_cv import router as analyze_cv_router
 from routes.analyze_sop import router as analyze_sop_router
 from routes.auth import router as auth_router
 from routes.live_opportunities import router as live_opportunities_router
 from routes.opportunities import router as opportunities_router
 from services.auth_service import init_auth_db
-
-BASE_DIR = Path(__file__).resolve().parent
-load_dotenv(BASE_DIR / ".env")
 
 app = FastAPI(
     title="Smart Application Intelligence System API",
