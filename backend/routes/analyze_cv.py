@@ -16,6 +16,8 @@ def analyze_cv(payload: CVAnalysisRequest) -> CVAnalysisResponse:
     try:
         return analyze_cv_with_gemini(
             cv_text=payload.cv_text,
+            cv_pdf_base64=payload.cv_pdf_base64,
+            cv_pdf_filename=payload.cv_pdf_filename,
             target_opportunity=payload.target_opportunity,
         )
     except GeminiCVServiceError as exc:
