@@ -1,3 +1,6 @@
+from pathlib import Path
+
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,6 +12,9 @@ from routes.auth import router as auth_router
 from routes.live_opportunities import router as live_opportunities_router
 from routes.opportunities import router as opportunities_router
 from services.auth_service import init_auth_db
+
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(BASE_DIR / ".env")
 
 app = FastAPI(
     title="Smart Application Intelligence System API",
