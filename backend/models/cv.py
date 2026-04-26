@@ -1,12 +1,20 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class CVAnalysisRequest(BaseModel):
-    cv_text: str = Field(
-        ...,
-        min_length=100,
+    cv_text: str | None = Field(
+        default=None,
         max_length=50000,
         description="Full CV or resume text",
+    )
+    cv_pdf_base64: str | None = Field(
+        default=None,
+        description="Base64-encoded PDF bytes for CV/resume",
+    )
+    cv_pdf_filename: str | None = Field(
+        default=None,
+        max_length=255,
+        description="Optional PDF filename for logging and diagnostics",
     )
     target_opportunity: str = Field(
         ...,
@@ -17,11 +25,27 @@ class CVAnalysisRequest(BaseModel):
 
     @field_validator("cv_text", "target_opportunity")
     @classmethod
-    def strip_and_validate(cls, value: str) -> str:
+    def strip_and_validate(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+
         stripped = value.strip()
         if not stripped:
             raise ValueError("Field must not be empty after stripping whitespace.")
         return stripped
+
+    @model_validator(mode="after")
+    def validate_cv_source(self) -> "CVAnalysisRequest":
+        has_text = bool(self.cv_text and self.cv_text.strip())
+        has_pdf = bool(self.cv_pdf_base64 and self.cv_pdf_base64.strip())
+
+        if not has_text and not has_pdf:
+            raise ValueError("Provide either cv_text or cv_pdf_base64.")
+
+        if has_text and self.cv_text is not None and len(self.cv_text) < 100:
+            raise ValueError("cv_text must be at least 100 characters when provided.")
+
+        return self
 
 
 class CVAnalysisResponse(BaseModel):
