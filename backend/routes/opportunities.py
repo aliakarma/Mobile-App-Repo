@@ -3,7 +3,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 
-from models.opportunity import Opportunity
+from ..models.opportunity import Opportunity
 
 router = APIRouter(tags=["opportunities"])
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import logging
 import os
 import secrets
 import sqlite3
@@ -12,6 +13,7 @@ from typing import Any
 
 from jose import JWTError, jwt
 
+logger = logging.getLogger(__name__)
 
 _algorithm = "HS256"
 _access_token_expire_minutes = int(
@@ -20,13 +22,14 @@ _access_token_expire_minutes = int(
 _access_token_remember_expire_minutes = int(
     os.getenv("AUTH_ACCESS_TOKEN_REMEMBER_ME_EXPIRE_MINUTES", "43200")
 )
-_secret_key = os.getenv("AUTH_SECRET_KEY", "replace-this-with-a-strong-secret")
 _password_hash_iterations = int(os.getenv("AUTH_PASSWORD_HASH_ITERATIONS", "310000"))
 _password_scheme = "pbkdf2_sha256"
 
 _base_dir = Path(__file__).resolve().parents[1]
 _db_dir = _base_dir / "data"
 _db_path = _db_dir / "auth.db"
+_secret_key: str | None = None
+_development_secret_warning_emitted = False
 
 
 class EmailAlreadyExistsError(ValueError):
@@ -43,6 +46,9 @@ class AuthUserRecord:
 
 
 def init_auth_db() -> None:
+    # Fail fast on startup when the auth secret is not configured.
+    get_auth_secret_key()
+
     _db_dir.mkdir(parents=True, exist_ok=True)
     with _get_connection() as connection:
         connection.execute(
@@ -102,6 +108,8 @@ def create_user(full_name: str, email: str, password: str) -> AuthUserRecord:
                 (full_name.strip(), normalized_email, password_hash, now_iso, now_iso),
             )
             connection.commit()
+            if cursor.lastrowid is None:
+                raise RuntimeError("Failed to create user account.")
             user_id = int(cursor.lastrowid)
     except sqlite3.IntegrityError as error:
         raise EmailAlreadyExistsError("An account with this email already exists.") from error
@@ -139,15 +147,45 @@ def create_access_token(
         "email": user.email,
         "exp": expires_at,
     }
-    token = jwt.encode(to_encode, _secret_key, algorithm=_algorithm)
+    token = jwt.encode(to_encode, get_auth_secret_key(), algorithm=_algorithm)
     return token, int(expires_delta.total_seconds())
 
 
 def decode_access_token(token: str) -> dict[str, Any]:
     try:
-        return jwt.decode(token, _secret_key, algorithms=[_algorithm])
+        return jwt.decode(token, get_auth_secret_key(), algorithms=[_algorithm])
     except JWTError as error:
         raise ValueError("Invalid or expired token.") from error
+
+
+def get_auth_secret_key() -> str:
+    global _secret_key
+    if _secret_key is None:
+        _secret_key = _load_auth_secret_key()
+    return _secret_key
+
+
+def _load_auth_secret_key() -> str:
+    raw_secret = os.getenv("AUTH_SECRET_KEY", "").strip()
+    if raw_secret:
+        return raw_secret
+
+    if _is_production_environment():
+        raise RuntimeError("AUTH_SECRET_KEY is required for authentication.")
+
+    global _development_secret_warning_emitted
+    if not _development_secret_warning_emitted:
+        logger.warning(
+            "AUTH_SECRET_KEY is not set. Using an insecure development fallback. "
+            "Set AUTH_SECRET_KEY in backend/.env for stable local auth tokens."
+        )
+        _development_secret_warning_emitted = True
+
+    return "local-dev-auth-secret-change-me"
+
+
+def _is_production_environment() -> bool:
+    return os.getenv("ENV", "").strip().lower() in {"prod", "production"}
 
 
 def get_password_hash(password: str) -> str:

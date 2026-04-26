@@ -22,7 +22,7 @@ from typing import Any
 import requests
 from pypdf import PdfReader
 
-from models.cv import CVAnalysisResponse
+from ..models.cv import CVAnalysisResponse
 
 GEMINI_API_URL_TEMPLATE = (
     "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
@@ -31,6 +31,7 @@ GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 GEMINI_MODEL_FALLBACKS = os.getenv(
     "GEMINI_MODEL_FALLBACKS", "gemini-2.5-flash-lite,gemini-1.5-flash"
 )
+GEMINI_CV_TIMEOUT_SECONDS = int(os.getenv("GEMINI_CV_TIMEOUT_SECONDS", "45"))
 
 CV_PROMPT_TEMPLATE = """You are an expert scholarship and internship application reviewer with 15 years of experience evaluating CVs for competitive academic programmes at universities like MIT, Stanford, NUS, KAUST, and MBZUAI.
 
@@ -117,7 +118,7 @@ def analyze_cv_with_gemini(
     response = _request_with_model_fallback(
         api_key=api_key,
         payload=payload,
-        timeout_seconds=20,
+        timeout_seconds=GEMINI_CV_TIMEOUT_SECONDS,
     )
 
     if response.status_code != 200:

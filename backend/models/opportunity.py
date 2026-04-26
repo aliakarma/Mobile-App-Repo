@@ -8,3 +8,8 @@ class Opportunity(BaseModel):
     deadline: str
     eligibility: str
     link: HttpUrl
+
+
+class OpportunitiesCacheResponse(BaseModel):
+    updated_at: str
+    opportunities: list[Opportunity]

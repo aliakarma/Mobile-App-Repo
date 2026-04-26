@@ -1,14 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from models.auth import (
+from ..models.auth import (
     AuthTokenResponse,
     AuthUserResponse,
     LoginRequest,
     LogoutResponse,
     SignUpRequest,
 )
-from services.auth_service import (
+from ..services.auth_service import (
     AuthUserRecord,
     EmailAlreadyExistsError,
     authenticate_user,

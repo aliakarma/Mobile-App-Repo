@@ -99,27 +99,39 @@ Copy-Item backend/.env.example backend/.env
 2. Open `backend/.env` and set:
 
 ```text
+AUTH_SECRET_KEY=replace_with_a_long_random_secret
 GEMINI_API_KEY=your_real_key_here
 GEMINI_MODEL=gemini-1.5-flash
+GEMINI_CV_TIMEOUT_SECONDS=45
 ```
 
 Notes:
 - `backend/.env` is ignored by git via `.gitignore`.
 - `backend/main.py` automatically loads `backend/.env` at startup.
+- `AUTH_SECRET_KEY` is required for stable authentication tokens.
 - If key is missing, `/analyze-sop` and `/analyze-cv` return a clear error while non-AI features still work.
+- If `AUTH_SECRET_KEY` is missing in local development, the backend now uses a temporary fallback so startup does not fail, but setting a real value is still recommended.
 
 Alternative (ephemeral, current terminal only):
 
 ```powershell
+$env:AUTH_SECRET_KEY="replace_with_a_long_random_secret"
 $env:GEMINI_API_KEY="your_key_here"
-$env:GEMINI_MODEL="gemini-1.5-flash"
+$env:GEMINI_MODEL="gemini-2.5-flash"
 ```
 
 ### 4. Start backend server
 
+From the repo root:
+
 ```powershell
-cd backend
-python -m uvicorn main:app --reload --host 127.0.0.1 --port 8001
+python backend/run_server.py
+```
+
+If your terminal is already inside `backend`:
+
+```powershell
+python run_server.py
 ```
 
 Backend should be available at:
@@ -182,20 +194,27 @@ flutter test
 Quick backend import check:
 
 ```powershell
-cd backend
-python -c "import main; print('backend import ok')"
+cd Mobile-App-Repo
+python -c "import backend.main; print('backend import ok')"
 ```
 
 ## Troubleshooting
 
-### Error: ModuleNotFoundError: No module named 'routes'
-Cause: backend started from wrong directory.
+### Error: ModuleNotFoundError: No module named 'backend'
+Cause: `uvicorn backend.main:app` was started while the current directory was already `backend`, so Python could not see the repo root on its import path.
 
-Fix: run from `backend` folder using:
+Permanent fix: use the launcher script, which adds the repo root to Python's import path automatically.
+
+Use either of these:
+
+```powershell
+cd Mobile-App-Repo
+python backend/run_server.py
+```
 
 ```powershell
 cd backend
-python -m uvicorn main:app --reload --port 8001
+python run_server.py
 ```
 
 ### Error: Address already in use / WinError 10013
@@ -212,6 +231,21 @@ Fix option 2: run backend on another port, then update base URL in:
 Cause: Gemini environment variable is not set.
 
 Fix: set `GEMINI_API_KEY` in backend terminal before starting server.
+
+### Startup fails with `AUTH_SECRET_KEY is required for authentication`
+Cause: authentication was enabled but no auth secret was configured.
+
+Fix:
+- Preferred: add `AUTH_SECRET_KEY=replace_with_a_long_random_secret` to `backend/.env`.
+- Local development fallback now allows the backend to start without it, but tokens will use an insecure dev-only secret.
+
+### CV analysis says request timed out
+Cause: CV analysis, especially with longer text or PDFs, can take longer than a normal API request.
+
+Fix:
+- Pull the latest app changes in this repo, which increase the client timeout for `/analyze-cv`.
+- Restart the FastAPI backend after updating `backend/.env`.
+- If PDF analysis is still slow, increase `GEMINI_CV_TIMEOUT_SECONDS` in `backend/.env` to `60`.
 
 ## Progress #4 Evidence (UI linked with SQLite)
 

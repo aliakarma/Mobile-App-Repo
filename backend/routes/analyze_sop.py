@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
-from models.sop import SOPAnalysisResponse, SOPRequest
-from services.gemini_sop_service import GeminiServiceError, analyze_sop_with_gemini
+from ..models.sop import SOPAnalysisResponse, SOPRequest
+from ..services.gemini_sop_service import GeminiServiceError, analyze_sop_with_gemini
 
 router = APIRouter(tags=["sop"])
 

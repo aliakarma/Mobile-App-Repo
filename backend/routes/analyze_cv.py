@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
-from models.cv import CVAnalysisRequest, CVAnalysisResponse
-from services.gemini_cv_service import GeminiCVServiceError, analyze_cv_with_gemini
+from ..models.cv import CVAnalysisRequest, CVAnalysisResponse
+from ..services.gemini_cv_service import GeminiCVServiceError, analyze_cv_with_gemini
 
 router = APIRouter(tags=["cv"])
 

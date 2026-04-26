@@ -7,7 +7,7 @@ from typing import Any
 
 import requests
 
-from models.sop import SOPAnalysisResponse
+from ..models.sop import SOPAnalysisResponse
 
 GEMINI_API_URL_TEMPLATE = (
     "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
