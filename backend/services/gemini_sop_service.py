@@ -1,20 +1,16 @@
 from __future__ import annotations
 
-import json
 import os
-import time
-from typing import Any
-
-import requests
 
 from ..models.sop import SOPAnalysisResponse
-
-GEMINI_API_URL_TEMPLATE = (
-    "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-)
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-GEMINI_MODEL_FALLBACKS = os.getenv(
-    "GEMINI_MODEL_FALLBACKS", "gemini-2.5-flash-lite,gemini-1.5-flash"
+from .gemini_client import (
+    DEFAULT_PROMPT_CHAR_LIMIT,
+    GeminiRequestError,
+    GeminiRequestOptions,
+    call_gemini_with_fallback,
+    extract_gemini_text_output,
+    parse_gemini_json_text,
+    trim_prompt,
 )
 
 PROMPT_TEMPLATE = """You are an admissions evaluation assistant.
@@ -38,13 +34,18 @@ SOP TEXT:
 {input_text}
 """
 
+SOP_PROMPT_CHAR_LIMIT = 8500
+SOP_INPUT_CHAR_LIMIT = 7000
+
 
 class GeminiServiceError(Exception):
     """Raised when Gemini API interaction fails."""
 
 
 def build_prompt(sop_text: str) -> str:
-    return PROMPT_TEMPLATE.format(input_text=sop_text.strip())
+    input_text = trim_prompt(sop_text, SOP_INPUT_CHAR_LIMIT)
+    prompt = PROMPT_TEMPLATE.format(input_text=input_text)
+    return trim_prompt(prompt, SOP_PROMPT_CHAR_LIMIT)
 
 
 def analyze_sop_with_gemini(sop_text: str) -> SOPAnalysisResponse:
@@ -53,7 +54,43 @@ def analyze_sop_with_gemini(sop_text: str) -> SOPAnalysisResponse:
         raise GeminiServiceError("Missing GEMINI_API_KEY environment variable.")
 
     prompt = build_prompt(sop_text)
-    payload = {
+
+    try:
+        response = call_gemini_with_fallback(
+            prompt,
+            GeminiRequestOptions(
+                api_key=api_key,
+                operation="analyze_sop",
+                timeout_seconds=int(os.getenv("GEMINI_TIMEOUT_SECONDS", "45")),
+                max_retries=int(os.getenv("GEMINI_MAX_RETRIES", "2")),
+                prompt_char_limit=DEFAULT_PROMPT_CHAR_LIMIT,
+                request_payload_builder=_build_request_payload,
+            ),
+        )
+    except GeminiRequestError as exc:
+        raise GeminiServiceError(str(exc)) from exc
+
+    try:
+        data = response.json()
+    except ValueError as exc:
+        raise GeminiServiceError("Gemini response is not valid JSON.") from exc
+
+    text_output = extract_gemini_text_output(data)
+    if not text_output:
+        raise GeminiServiceError("Gemini response did not include text output.")
+
+    parsed = parse_gemini_json_text(text_output, error_prefix="SOP analysis:")
+
+    try:
+        return SOPAnalysisResponse.model_validate(parsed)
+    except Exception as exc:  # noqa: BLE001
+        raise GeminiServiceError(
+            "Gemini returned JSON that does not match the required schema."
+        ) from exc
+
+
+def _build_request_payload(prompt: str) -> dict[str, object]:
+    return {
         "contents": [
             {
                 "parts": [
@@ -68,179 +105,3 @@ def analyze_sop_with_gemini(sop_text: str) -> SOPAnalysisResponse:
             "responseMimeType": "application/json",
         },
     }
-
-    response = _request_with_model_fallback(
-        api_key=api_key,
-        payload=payload,
-        timeout_seconds=15,
-    )
-
-    if response.status_code != 200:
-        detail = _safe_error_detail(response)
-        raise GeminiServiceError(
-            f"Gemini API returned {response.status_code}: {detail}"
-        )
-
-    try:
-        data = response.json()
-    except ValueError as exc:
-        raise GeminiServiceError("Gemini response is not valid JSON.") from exc
-
-    text_output = _extract_text_output(data)
-    if not text_output:
-        raise GeminiServiceError("Gemini response did not include text output.")
-
-    parsed = _parse_json_text(text_output)
-
-    try:
-        return SOPAnalysisResponse.model_validate(parsed)
-    except Exception as exc:  # noqa: BLE001
-        raise GeminiServiceError(
-            "Gemini returned JSON that does not match the required schema."
-        ) from exc
-
-
-def _extract_text_output(data: dict[str, Any]) -> str:
-    candidates = data.get("candidates")
-    if not isinstance(candidates, list) or not candidates:
-        return ""
-
-    first_candidate = candidates[0]
-    if not isinstance(first_candidate, dict):
-        return ""
-
-    content = first_candidate.get("content")
-    if not isinstance(content, dict):
-        return ""
-
-    parts = content.get("parts")
-    if not isinstance(parts, list) or not parts:
-        return ""
-
-    first_part = parts[0]
-    if not isinstance(first_part, dict):
-        return ""
-
-    text = first_part.get("text")
-    if not isinstance(text, str):
-        return ""
-
-    return text.strip()
-
-
-def _parse_json_text(text: str) -> dict[str, Any]:
-    cleaned = text.strip()
-
-    if cleaned.startswith("```"):
-        cleaned = cleaned.strip("`")
-        if cleaned.startswith("json"):
-            cleaned = cleaned[4:].strip()
-
-    start = cleaned.find("{")
-    end = cleaned.rfind("}")
-    if start != -1 and end != -1 and end > start:
-        cleaned = cleaned[start : end + 1]
-
-    try:
-        parsed = json.loads(cleaned)
-    except json.JSONDecodeError as exc:
-        raise GeminiServiceError("Failed to parse JSON payload from Gemini output.") from exc
-
-    if not isinstance(parsed, dict):
-        raise GeminiServiceError("Gemini output JSON must be an object.")
-
-    return parsed
-
-
-def _safe_error_detail(response: requests.Response) -> str:
-    try:
-        body = response.json()
-    except ValueError:
-        return response.text[:200] if response.text else "Unknown error"
-
-    if isinstance(body, dict):
-        error = body.get("error")
-        if isinstance(error, dict):
-            message = error.get("message")
-            if isinstance(message, str) and message.strip():
-                return message.strip()
-
-    return "Unknown error"
-
-
-def _request_with_model_fallback(
-    *,
-    api_key: str,
-    payload: dict[str, Any],
-    timeout_seconds: int,
-) -> requests.Response:
-    last_response: requests.Response | None = None
-
-    for model in _candidate_models():
-        response = _request_with_retry(
-            url=GEMINI_API_URL_TEMPLATE.format(model=model),
-            api_key=api_key,
-            payload=payload,
-            max_attempts=3,
-            timeout_seconds=timeout_seconds,
-        )
-
-        if response.status_code == 200:
-            return response
-
-        if not _is_model_not_supported(response):
-            return response
-
-        last_response = response
-
-    if last_response is not None:
-        return last_response
-
-    raise GeminiServiceError("No Gemini model candidates were configured.")
-
-
-def _candidate_models() -> list[str]:
-    models: list[str] = []
-    for value in [GEMINI_MODEL, GEMINI_MODEL_FALLBACKS]:
-        for model in value.split(","):
-            cleaned = model.strip()
-            if cleaned and cleaned not in models:
-                models.append(cleaned)
-    return models
-
-
-def _is_model_not_supported(response: requests.Response) -> bool:
-    if response.status_code not in {400, 404}:
-        return False
-
-    detail = _safe_error_detail(response).lower()
-    return "not found" in detail or "not supported" in detail
-
-
-def _request_with_retry(
-    *,
-    url: str,
-    api_key: str,
-    payload: dict[str, Any],
-    max_attempts: int,
-    timeout_seconds: int,
-) -> requests.Response:
-    last_error: Exception | None = None
-
-    for attempt in range(1, max_attempts + 1):
-        try:
-            return requests.post(
-                url,
-                params={"key": api_key},
-                json=payload,
-                timeout=timeout_seconds,
-            )
-        except requests.Timeout as exc:
-            last_error = exc
-        except requests.RequestException as exc:
-            last_error = exc
-
-        if attempt < max_attempts:
-            time.sleep(0.5 * attempt)
-
-    raise GeminiServiceError(f"Gemini request failed after retries: {last_error}")
